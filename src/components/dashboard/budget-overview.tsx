@@ -35,7 +35,7 @@ export function BudgetOverview({ budgets, categories }: BudgetOverviewProps) {
           </p>
         ) : (
           activeBudgets.map((budget) => {
-            const cat = categories.find((c) => c.id === budget.categoryId);
+            const cat = categories.find((c) => c.id === budget.categoryIds[0]);
             const percentage = budget.amount > 0 ? Math.round((budget.spent / budget.amount) * 100) : 0;
             const remaining = budget.amount - budget.spent;
             const isExceeded = percentage > 100;

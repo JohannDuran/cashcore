@@ -11,7 +11,11 @@ import logger from "@/lib/logger";
  */
 function mapFrontendToDb(frontendBudget: Partial<Budget>) {
   const dbData: any = { ...frontendBudget };
-  
+
+  delete dbData.id;
+  delete dbData.category;
+  delete dbData.user;
+
   if (dbData.startDate) {
     dbData.startDate = new Date(dbData.startDate);
   }
@@ -35,6 +39,7 @@ export async function createBudgetAction(budget: Omit<Budget, "createdAt" | "upd
     if (!user) throw new Error("Unauthorized");
 
     const dbData = mapFrontendToDb(budget);
+    delete dbData.userId;
 
     const newBudget = await budgetService.createBudget(user.id, dbData);
 
@@ -57,8 +62,8 @@ export async function updateBudgetAction(
 
     const dbData = mapFrontendToDb(data);
 
-    // Evitamos enviar el id dentro del data de update
     delete dbData.id;
+    delete dbData.userId;
 
     const updatedBudget = await budgetService.updateBudget(
       user.id,

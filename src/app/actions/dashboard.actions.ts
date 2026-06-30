@@ -34,9 +34,6 @@ export async function getDashboardDataAction() {
 
     const budgets = await prisma.budget.findMany({
       where: { userId: user.id },
-      include: {
-        category: true,
-      }
     });
 
     // We can fetch global or user categories

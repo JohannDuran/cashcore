@@ -96,11 +96,11 @@ function calculateBudgetSpent(
   return transactions
     .filter(
       (t) =>
-        t.type === "expense" &&
-        t.categoryId === budget.categoryId &&
+        (t.type === "expense" || t.type === "transfer") &&
+        budget.categoryIds.includes(t.categoryId) &&
         new Date(t.date) >= startDate &&
         new Date(t.date) <= now &&
-        (!budget.walletId || t.walletId === budget.walletId)
+        (budget.walletIds.length === 0 || budget.walletIds.includes(t.walletId))
     )
     .reduce((sum, t) => sum + t.amount, 0);
 }

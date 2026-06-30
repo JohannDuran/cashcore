@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -16,13 +17,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,8 +28,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CategoryPicker } from "@/components/shared/category-picker";
+import { IconRenderer } from "@/components/shared/icon-renderer";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, Wallet as WalletIcon } from "lucide-react";
 
 const periodOptions: { value: BudgetPeriod; label: string }[] = [
   { value: "weekly", label: "Semanal" },
@@ -54,20 +49,21 @@ export function BudgetFormModal() {
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [period, setPeriod] = useState<BudgetPeriod>("monthly");
-  const [categoryId, setCategoryId] = useState("");
-  const [walletId, setWalletId] = useState("");
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [walletIds, setWalletIds] = useState<string[]>([]);
   const [rollover, setRollover] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
+  const activeWallets = wallets.filter((w) => !w.isArchived);
 
   useEffect(() => {
     if (isEditing && editBudget) {
       setName(editBudget.name);
       setAmount(editBudget.amount.toString());
       setPeriod(editBudget.period);
-      setCategoryId(editBudget.categoryId);
-      setWalletId(editBudget.walletId || "");
+      setCategoryIds(editBudget.categoryIds || []);
+      setWalletIds(editBudget.walletIds || []);
       setRollover(editBudget.rollover);
     } else {
       resetForm();
@@ -78,8 +74,8 @@ export function BudgetFormModal() {
     setName("");
     setAmount("");
     setPeriod("monthly");
-    setCategoryId("");
-    setWalletId("");
+    setCategoryIds([]);
+    setWalletIds([]);
     setRollover(false);
   }
 
@@ -105,6 +101,12 @@ export function BudgetFormModal() {
     return "Se eliminará de forma permanente esta planificación de presupuesto e historial de monitoreo. Las transacciones subyacentes NO serán eliminadas.";
   };
 
+  function toggleWallet(id: string) {
+    setWalletIds((prev) =>
+      prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -113,22 +115,22 @@ export function BudgetFormModal() {
       toast.error("Ingresa un monto válido");
       return;
     }
-    if (!categoryId) {
-      toast.error("Selecciona una categoría");
+    if (categoryIds.length === 0) {
+      toast.error("Selecciona al menos una categoría");
       return;
     }
 
-    const cat = categories.find((c) => c.id === categoryId);
+    const firstCat = categories.find((c) => c.id === categoryIds[0]);
     const optimisticId = isEditing && editBudget ? editBudget.id : generateId();
 
     const budgetData = {
       id: optimisticId,
       userId: user?.id || "",
-      name: name || cat?.name || "Presupuesto",
+      name: name || (categoryIds.length === 1 && firstCat ? firstCat.name : "Presupuesto"),
       amount: numAmount,
       period,
-      categoryId,
-      walletId: walletId || undefined,
+      categoryIds,
+      walletIds,
       startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
       rollover,
       isActive: true,
@@ -157,7 +159,7 @@ export function BudgetFormModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar presupuesto" : "Nuevo presupuesto"}</DialogTitle>
           <DialogDescription>
@@ -178,20 +180,31 @@ export function BudgetFormModal() {
           </div>
 
           <div>
-            <Label>Categoría</Label>
+            <div className="flex items-center justify-between">
+              <Label>Categorías</Label>
+              {categoryIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setCategoryIds([])}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
             <div className="mt-2">
               <CategoryPicker
                 categories={expenseCategories}
-                selectedId={categoryId}
-                onSelect={(id) => {
-                  setCategoryId(id);
-                  if (!name) {
-                    const cat = categories.find((c) => c.id === id);
-                    if (cat) setName(cat.name);
-                  }
-                }}
+                selectedIds={categoryIds}
+                onMultiSelect={setCategoryIds}
+                type="expense"
               />
             </div>
+            {categoryIds.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-2">
+                {categoryIds.length} categoría{categoryIds.length === 1 ? "" : "s"} seleccionada{categoryIds.length === 1 ? "" : "s"}
+              </p>
+            )}
           </div>
 
           <div>
@@ -233,18 +246,53 @@ export function BudgetFormModal() {
           </div>
 
           <div>
-            <Label>Wallet (opcional)</Label>
-            <Select value={walletId || "all"} onValueChange={(v) => setWalletId(v === "all" ? "" : v)}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Todos los wallets" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los wallets</SelectItem>
-                {wallets.filter((w) => !w.isArchived).map((w) => (
-                  <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center justify-between">
+              <Label>Wallets</Label>
+              <div className="flex items-center gap-2">
+                {walletIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setWalletIds([])}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Ninguna
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setWalletIds(activeWallets.map((w) => w.id))}
+                  className="text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  Todas
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {walletIds.length === 0
+                ? "Sin filtro de wallet — aplica a todas"
+                : `${walletIds.length} wallet${walletIds.length === 1 ? "" : "s"} seleccionada${walletIds.length === 1 ? "" : "s"}`}
+            </p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {activeWallets.map((w) => {
+                const selected = walletIds.includes(w.id);
+                return (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => toggleWallet(w.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-all cursor-pointer",
+                      selected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-transparent bg-muted text-muted-foreground hover:border-border"
+                    )}
+                  >
+                    <WalletIcon className="w-3 h-3" />
+                    {w.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="flex items-center justify-between">

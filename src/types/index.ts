@@ -72,12 +72,12 @@ export interface Transaction {
 export interface Budget {
   id: string;
   userId: string;
-  walletId?: string;
+  walletIds: string[];
   name: string;
   amount: number;
   spent: number;
   period: BudgetPeriod;
-  categoryId: string;
+  categoryIds: string[];
   category?: Category;
   startDate: string;
   endDate?: string;

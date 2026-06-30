@@ -114,6 +114,11 @@ export default function SubscriptionsPage() {
     [subscriptions]
   );
 
+  const inactiveSubs = useMemo(
+    () => subscriptions.filter((subscription) => !subscription.isActive),
+    [subscriptions]
+  );
+
   const exchangeSourceKey = useMemo(() => {
     const sourceCurrencies = new Set<Currency>([displayCurrency]);
     activeSubs.forEach((subscription) => sourceCurrencies.add(subscription.currency));
@@ -466,6 +471,76 @@ export default function SubscriptionsPage() {
                           </div>
                         </div>
                         {idx < sortedSubs.length - 1 && <Separator />}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Inactive Subscriptions */}
+          {inactiveSubs.length > 0 && (
+            <Card className="opacity-80">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-display flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-muted-foreground" />
+                  Suscripciones inactivas
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                    {inactiveSubs.length}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-1">
+                  {inactiveSubs.map((sub, idx) => {
+                    const converted = convert(sub.amount, sub.currency);
+                    const isDifferentCurrency = sub.currency !== displayCurrency;
+
+                    return (
+                      <div
+                        key={sub.id}
+                        className="cursor-pointer hover:bg-muted/50 rounded-lg transition-colors group px-2 -mx-2"
+                        onClick={() => {
+                          setEditingItem(sub);
+                          setActiveModal("subscription-form");
+                        }}
+                      >
+                        <div className="flex items-center gap-3 py-3">
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden grayscale"
+                            style={{ backgroundColor: `${sub.color}15` }}
+                          >
+                            <PlatformLogo sub={sub} size={20} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-muted-foreground">{sub.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                {cycleLabels[sub.billingCycle]}
+                              </Badge>
+                              {sub.isDomiciliado && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/50 text-emerald-600 dark:text-emerald-400">
+                                  Domiciliado{sub.walletId && ` · ${wallets.find((w) => w.id === sub.walletId)?.name ?? ""}`}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-semibold text-muted-foreground">
+                              {formatCurrency(converted, displayCurrency)}
+                            </p>
+                            {isDifferentCurrency && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {formatCurrency(sub.amount, sub.currency)}
+                              </p>
+                            )}
+                            <p className="text-[10px] text-muted-foreground">
+                              /{sub.billingCycle === "yearly" ? "año" : "mes"}
+                            </p>
+                          </div>
+                        </div>
+                        {idx < inactiveSubs.length - 1 && <Separator />}
                       </div>
                     );
                   })}

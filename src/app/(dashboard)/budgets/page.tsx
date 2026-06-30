@@ -25,7 +25,7 @@ import { useState } from "react";
 import type { Budget } from "@/types";
 
 export default function BudgetsPage() {
-  const { budgets, categories, setActiveModal, setEditingItem, deleteBudget } = useFinFlowStore();
+  const { budgets, categories, wallets, setActiveModal, setEditingItem, deleteBudget } = useFinFlowStore();
   const [deleteTarget, setDeleteTarget] = useState<Budget | null>(null);
 
   const activeBudgets = budgets.filter((b) => b.isActive);
@@ -105,7 +105,8 @@ export default function BudgetsPage() {
             <BudgetCard
               key={budget.id}
               budget={budget}
-              category={categories.find((c) => c.id === budget.categoryId)}
+              categories={categories}
+              wallets={wallets}
               onEdit={() => handleEdit(budget)}
             />
           ))}

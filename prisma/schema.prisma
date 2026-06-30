@@ -52,7 +52,6 @@ model Wallet {
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions  Transaction[]  @relation("WalletTransactions")
   transfersIn   Transaction[]  @relation("TransferToWallet")
-  budgets       Budget[]
   goals         Goal[]
   subscriptions Subscription[]
 }
@@ -69,7 +68,6 @@ model Category {
 
   user          User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
   transactions  Transaction[]
-  budgets       Budget[]
   subscriptions Subscription[]
   parent        Category?      @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children      Category[]     @relation("CategoryHierarchy")
@@ -114,24 +112,22 @@ model Tag {
 }
 
 model Budget {
-  id         String    @id @default(uuid())
-  userId     String
-  walletId   String?
-  name       String
-  amount     Float
-  spent      Float     @default(0)
-  period     String // 'weekly' | 'biweekly' | 'monthly' | 'yearly'
-  categoryId String
-  startDate  DateTime  @db.Date
-  endDate    DateTime? @db.Date
-  rollover   Boolean   @default(false)
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  userId      String
+  walletIds   String[]
+  name        String
+  amount      Float
+  spent       Float     @default(0)
+  period      String // 'weekly' | 'biweekly' | 'monthly' | 'yearly'
+  categoryIds String[]
+  startDate   DateTime  @db.Date
+  endDate     DateTime? @db.Date
+  rollover    Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  wallet   Wallet?  @relation(fields: [walletId], references: [id], onDelete: SetNull)
-  category Category @relation(fields: [categoryId], references: [id])
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Goal {
