@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { cn, generateId } from "@/lib/utils";
 import type { BillingCycle, Subscription, Currency } from "@/types";
 import { createSubscriptionAction, updateSubscriptionAction, deleteSubscriptionAction } from "@/app/actions/subscription.actions";
@@ -65,7 +65,7 @@ export function SubscriptionFormModal() {
     categories,
     wallets,
     user 
-  } = useFinFlowStore();
+  } = useCashCoreStore();
 
   const [isNameManuallyEdited, setIsNameManuallyEdited] = useState(false);
   const isOpen = activeModal === "subscription-form";

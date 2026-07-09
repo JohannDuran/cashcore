@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { Bell, CheckCircle2 } from "lucide-react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -17,9 +17,9 @@ const pageTitles: Record<string, string> = {
 
 export function Topbar() {
   const pathname = usePathname();
-  const { user } = useFinFlowStore();
+  const { user } = useCashCoreStore();
 
-  const title = pageTitles[pathname] || "FinFlow";
+  const title = pageTitles[pathname] || "CashCore";
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 sm:px-6 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -27,7 +27,7 @@ export function Topbar() {
         <div>
           <h1 className="text-lg sm:text-xl font-bold font-display tracking-tight">{title}</h1>
           <p className="text-xs text-muted-foreground hidden sm:block">
-            {user?.name ? `Holasss, ${user.name} 👋` : "Cargando..."}
+            {user?.name ? `Hola, ${user.name} 👋` : "Cargando..."}
           </p>
         </div>
       </div>

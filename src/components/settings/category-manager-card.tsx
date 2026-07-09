@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +28,7 @@ const COLOR_OPTIONS = [
 ];
 
 export function CategoryManagerCard() {
-  const { categories, addCategory, deleteCategory, user } = useFinFlowStore();
+  const { categories, addCategory, deleteCategory, user } = useCashCoreStore();
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<"expense" | "income">("expense");
   const [name, setName] = useState("");

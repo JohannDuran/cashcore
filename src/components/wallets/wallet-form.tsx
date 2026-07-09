@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { cn, generateId } from "@/lib/utils";
 import type { WalletType, Wallet } from "@/types";
 import { createWalletAction, updateWalletAction, deleteWalletAction } from "@/app/actions/wallet.actions";
@@ -66,7 +66,7 @@ export function WalletFormModal() {
     deleteWallet,
     transactions,
     user 
-  } = useFinFlowStore();
+  } = useCashCoreStore();
 
   const isOpen = activeModal === "wallet-form";
   const editWallet = editingItem as Wallet | null;

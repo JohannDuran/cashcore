@@ -1,6 +1,6 @@
 "use client";
 
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { BudgetCard } from "@/components/budgets/budget-card";
 import { BudgetFormModal } from "@/components/budgets/budget-form";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
@@ -25,7 +25,7 @@ import { useState } from "react";
 import type { Budget } from "@/types";
 
 export default function BudgetsPage() {
-  const { budgets, categories, wallets, setActiveModal, setEditingItem, deleteBudget } = useFinFlowStore();
+  const { budgets, categories, wallets, setActiveModal, setEditingItem, deleteBudget } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Budget | null>(null);
 
   const activeBudgets = budgets.filter((b) => b.isActive);

@@ -3,7 +3,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ──────────────────────────────────────────────
-   FINFLOW DESIGN SYSTEM — Tailwind CSS v4
+   CASHCORE DESIGN SYSTEM — Tailwind CSS v4
    ────────────────────────────────────────────── */
 
 @theme inline {

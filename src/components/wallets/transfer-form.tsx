@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { generateId } from "@/lib/utils";
 import { createTransactionAction } from "@/app/actions/transaction.actions";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 
 export function TransferFormModal() {
-  const { activeModal, setActiveModal, wallets, addTransaction, user } = useFinFlowStore();
+  const { activeModal, setActiveModal, wallets, addTransaction, user } = useCashCoreStore();
 
   const isOpen = activeModal === "transfer-form";
   const activeWallets = wallets.filter((w) => !w.isArchived);

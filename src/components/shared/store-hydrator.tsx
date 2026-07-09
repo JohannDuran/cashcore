@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 
 export function StoreHydrator({ data }: { data: any }) {
   const initialized = useRef(false);
 
   useEffect(() => {
     if (!initialized.current && data) {
-      useFinFlowStore.setState({
+      useCashCoreStore.setState({
         user: data.user,
         wallets: data.wallets,
         transactions: data.transactions,

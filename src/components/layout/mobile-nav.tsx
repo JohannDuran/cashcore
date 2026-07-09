@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { useState } from "react";
 import {
   LayoutDashboard,
@@ -38,7 +38,7 @@ const moreNav = [
 export function MobileNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { setActiveModal, user, logout } = useFinFlowStore();
+  const { setActiveModal, user, logout } = useCashCoreStore();
   const [showMore, setShowMore] = useState(false);
 
   const isMoreActive = moreNav.some(

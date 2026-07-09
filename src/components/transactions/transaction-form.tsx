@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { cn, generateId, formatCurrency } from "@/lib/utils";
 import { createTransactionAction, updateTransactionAction, deleteTransactionAction } from "@/app/actions/transaction.actions";
 import { createWalletAction } from "@/app/actions/wallet.actions";
@@ -83,7 +83,7 @@ export function TransactionFormModal() {
     addTransaction, updateTransaction, deleteTransaction,
     addWallet, updateWallet, addCategory, updateCategory, addTag,
     user,
-  } = useFinFlowStore();
+  } = useCashCoreStore();
 
   const isOpen = activeModal === "transaction-form";
   const editTx = editingItem as Transaction | null;

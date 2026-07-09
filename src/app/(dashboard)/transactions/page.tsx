@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { TransactionList } from "@/components/transactions/transaction-list";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
@@ -25,7 +25,7 @@ import { toast } from "sonner";
 
 export default function TransactionsPage() {
   const { transactions, wallets, categories, setActiveModal, editingItem, deleteTransaction, setEditingItem } =
-    useFinFlowStore();
+    useCashCoreStore();
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TransactionType | "all">("all");

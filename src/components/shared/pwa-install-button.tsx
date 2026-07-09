@@ -85,10 +85,10 @@ export function PWAInstallButton({ variant = "feature" }: { variant?: "feature" 
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Smartphone className="w-5 h-5 text-primary" />
-              Instalar FinFlow
+              Instalar CashCore
             </DialogTitle>
             <DialogDescription>
-              Agrega FinFlow a tu pantalla de inicio para acceso rápido sin abrir el navegador.
+              Agrega CashCore a tu pantalla de inicio para acceso rápido sin abrir el navegador.
             </DialogDescription>
           </DialogHeader>
 

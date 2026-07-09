@@ -1,6 +1,6 @@
 "use client";
 
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { WalletCard } from "@/components/wallets/wallet-card";
 import { WalletFormModal } from "@/components/wallets/wallet-form";
 import { TransferFormModal } from "@/components/wallets/transfer-form";
@@ -34,7 +34,7 @@ function isDebtWallet(wallet: Wallet) {
 }
 
 export default function WalletsPage() {
-  const { wallets, transactions, setActiveModal, setEditingItem, deleteWallet } = useFinFlowStore();
+  const { wallets, transactions, setActiveModal, setEditingItem, deleteWallet } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Wallet | null>(null);
   const [currentDate] = useState(() => new Date());
 

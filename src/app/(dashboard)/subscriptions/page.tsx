@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -61,8 +61,27 @@ type ExchangeRateState = {
   error: string | null;
 };
 
+function getEffectiveNextBillDate(nextBillDate: string, billingCycle: string, referenceDate: Date): Date {
+  const billDate = new Date(nextBillDate);
+  billDate.setHours(0, 0, 0, 0);
+
+  if (billDate >= referenceDate) return billDate;
+
+  const next = new Date(billDate);
+  while (next < referenceDate) {
+    if (billingCycle === "weekly") {
+      next.setDate(next.getDate() + 7);
+    } else if (billingCycle === "monthly") {
+      next.setMonth(next.getMonth() + 1);
+    } else if (billingCycle === "yearly") {
+      next.setFullYear(next.getFullYear() + 1);
+    }
+  }
+  return next;
+}
+
 export default function SubscriptionsPage() {
-  const { subscriptions, categories, wallets, user, setActiveModal, setEditingItem, updateSubscription } = useFinFlowStore();
+  const { subscriptions, categories, wallets, user, setActiveModal, setEditingItem, updateSubscription } = useCashCoreStore();
   const defaultCurrency = user?.defaultCurrency || "MXN";
   const [displayCurrency, setDisplayCurrency] = useState<Currency>(defaultCurrency);
   const [exchangeRateState, setExchangeRateState] = useState<ExchangeRateState>({
@@ -70,7 +89,12 @@ export default function SubscriptionsPage() {
     rates: { [defaultCurrency]: 1 },
     error: null,
   });
-  const [now] = useState(() => Date.now());
+  const [today] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const now = today.getTime();
   const hasAdvanced = useRef(false);
   const [sortField, setSortField] = useState<SortField>("nextBillDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -80,9 +104,6 @@ export default function SubscriptionsPage() {
     if (hasAdvanced.current || !user?.id) return;
     hasAdvanced.current = true;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
     subscriptions.forEach((sub) => {
       if (!sub.isActive || !sub.nextBillDate) return;
 
@@ -91,23 +112,12 @@ export default function SubscriptionsPage() {
 
       if (billDate >= today) return;
 
-      // Advance to the next future date based on billing cycle
-      let next = new Date(billDate);
-      while (next < today) {
-        if (sub.billingCycle === "weekly") {
-          next.setDate(next.getDate() + 7);
-        } else if (sub.billingCycle === "monthly") {
-          next.setMonth(next.getMonth() + 1);
-        } else if (sub.billingCycle === "yearly") {
-          next.setFullYear(next.getFullYear() + 1);
-        }
-      }
-
-      const newDate = next.toISOString();
+      const effective = getEffectiveNextBillDate(sub.nextBillDate, sub.billingCycle, today);
+      const newDate = effective.toISOString();
       updateSubscription(sub.id, { nextBillDate: newDate });
       updateSubscriptionAction(user.id, sub.id, { nextBillDate: newDate });
     });
-  }, [subscriptions, user, updateSubscription]);
+  }, [subscriptions, user, updateSubscription, today]);
 
   const activeSubs = useMemo(
     () => subscriptions.filter((subscription) => subscription.isActive),
@@ -194,7 +204,10 @@ export default function SubscriptionsPage() {
     return [...activeSubs].sort((a, b) => {
       switch (sortField) {
         case "nextBillDate":
-          return dir * (new Date(a.nextBillDate).getTime() - new Date(b.nextBillDate).getTime());
+          return dir * (
+            getEffectiveNextBillDate(a.nextBillDate, a.billingCycle, today).getTime() -
+            getEffectiveNextBillDate(b.nextBillDate, b.billingCycle, today).getTime()
+          );
         case "amount":
           return dir * (convert(a.amount, a.currency) - convert(b.amount, b.currency));
         case "name":
@@ -208,7 +221,7 @@ export default function SubscriptionsPage() {
           return 0;
       }
     });
-  }, [activeSubs, sortField, sortDirection, wallets, convert]);
+  }, [activeSubs, sortField, sortDirection, wallets, convert, today]);
 
   const summary = useMemo(() => {
     const monthlyTotal = activeSubs.reduce((sum, s) => {
@@ -221,14 +234,18 @@ export default function SubscriptionsPage() {
     const yearlyTotal = monthlyTotal * 12;
 
     const nextBill = activeSubs
-      .filter((s) => s.nextBillDate && new Date(s.nextBillDate).getTime() >= now)
-      .sort((a, b) => new Date(a.nextBillDate).getTime() - new Date(b.nextBillDate).getTime())[0];
+      .map((s) => ({
+        ...s,
+        effectiveDate: getEffectiveNextBillDate(s.nextBillDate, s.billingCycle, today),
+      }))
+      .filter((s) => s.effectiveDate.getTime() >= now)
+      .sort((a, b) => a.effectiveDate.getTime() - b.effectiveDate.getTime())[0];
     const daysToNext = nextBill
-      ? Math.ceil((new Date(nextBill.nextBillDate).getTime() - now) / (1000 * 60 * 60 * 24))
+      ? Math.ceil((nextBill.effectiveDate.getTime() - now) / (1000 * 60 * 60 * 24))
       : null;
 
     return { monthlyTotal, yearlyTotal, nextBill, daysToNext, count: activeSubs.length };
-  }, [activeSubs, convert, now]);
+  }, [activeSubs, convert, now, today]);
 
   // Group by category
   const groupedSubs = useMemo(() => {
@@ -245,19 +262,17 @@ export default function SubscriptionsPage() {
     });
   }, [activeSubs, categories, convert]);
 
-  // Upcoming bills sorted by date (only future bills within the current month)
+  // Upcoming bills: next 3 after the closest one shown in the summary card
   const upcomingBills = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
-
     return [...activeSubs]
-      .filter((s) => {
-        const billDate = new Date(s.nextBillDate);
-        return billDate >= today && billDate <= endOfMonth;
-      })
-      .sort((a, b) => new Date(a.nextBillDate).getTime() - new Date(b.nextBillDate).getTime());
-  }, [activeSubs]);
+      .map((s) => ({
+        ...s,
+        effectiveDate: getEffectiveNextBillDate(s.nextBillDate, s.billingCycle, today),
+      }))
+      .filter((s) => !(summary.nextBill && s.id === summary.nextBill.id))
+      .sort((a, b) => a.effectiveDate.getTime() - b.effectiveDate.getTime())
+      .slice(0, 3);
+  }, [activeSubs, today, summary.nextBill]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -333,8 +348,16 @@ export default function SubscriptionsPage() {
                 <Repeat className="w-4 h-4 text-blue-500" />
               </div>
             </div>
-            <p className="text-xl font-bold">{summary.count}</p>
-            <p className="text-[10px] text-muted-foreground">activos</p>
+            <div className="flex justify-evenly">
+              <div>
+                <p className="text-xl font-bold">{summary.count}</p>
+                <p className="text-[10px] text-muted-foreground">activos</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold">{inactiveSubs.length}</p>
+                <p className="text-[10px] text-muted-foreground">inactivos</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -413,8 +436,9 @@ export default function SubscriptionsPage() {
               <CardContent className="pt-0">
                 <div className="space-y-1">
                   {sortedSubs.map((sub, idx) => {
+                    const effectiveDate = getEffectiveNextBillDate(sub.nextBillDate, sub.billingCycle, today);
                     const daysUntil = Math.ceil(
-                      (new Date(sub.nextBillDate).getTime() - now) / (1000 * 60 * 60 * 24)
+                      (effectiveDate.getTime() - now) / (1000 * 60 * 60 * 24)
                     );
                     const converted = convert(sub.amount, sub.currency);
                     const isDifferentCurrency = sub.currency !== displayCurrency;
@@ -563,7 +587,7 @@ export default function SubscriptionsPage() {
             <CardContent className="pt-0">
               <div className="space-y-3">
                 {upcomingBills.map((sub) => {
-                  const date = new Date(sub.nextBillDate);
+                  const date = sub.effectiveDate;
                   return (
                     <div key={sub.id} className="flex items-center gap-3">
                       <div className="flex flex-col items-center w-10 shrink-0">

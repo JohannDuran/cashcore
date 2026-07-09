@@ -20,7 +20,7 @@ export function Logo({ size = "md", showText = true, className }: LogoProps) {
     <div className={cn("flex items-center gap-2.5", className)}>
       {/* Circular badge logo — "FF" monogram */}
       <div className={cn("relative shrink-0", sizeMap[size])}>
-        <svg viewBox="0 0 100 100" className="w-full h-full" aria-label="FinFlow logo">
+        <svg viewBox="0 0 100 100" className="w-full h-full" aria-label="CashCore logo">
           <defs>
             <linearGradient id="ff-ring" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#8BC5A3" />
@@ -71,7 +71,7 @@ export function Logo({ size = "md", showText = true, className }: LogoProps) {
             size === "xl" && "text-3xl"
           )}
         >
-          FinFlow
+          CashCore
         </span>
       )}
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ const COLOR_OPTIONS = [
 ];
 
 export function TagManagerCard() {
-  const { tags, addTag, updateTag, deleteTag } = useFinFlowStore();
+  const { tags, addTag, updateTag, deleteTag } = useCashCoreStore();
 
   // New tag form
   const [showForm, setShowForm] = useState(false);

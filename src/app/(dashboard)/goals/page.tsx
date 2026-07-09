@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -38,7 +38,7 @@ const goalTypeColors: Record<string, string> = {
 };
 
 function GoalCard({ goal }: { goal: Goal }) {
-  const { setActiveModal, setEditingItem } = useFinFlowStore();
+  const { setActiveModal, setEditingItem } = useCashCoreStore();
   const percentage = Math.min(
     Math.round((goal.currentAmount / goal.targetAmount) * 100),
     100
@@ -168,7 +168,7 @@ function GoalCard({ goal }: { goal: Goal }) {
 }
 
 export default function GoalsPage() {
-  const { goals, setActiveModal, setEditingItem } = useFinFlowStore();
+  const { goals, setActiveModal, setEditingItem } = useCashCoreStore();
 
   const activeGoals = goals.filter((g) => !g.isCompleted);
   const completedGoals = goals.filter((g) => g.isCompleted);

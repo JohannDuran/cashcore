@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +48,7 @@ const periodLabels: Record<Period, string> = {
 };
 
 export default function ReportsPage() {
-  const { transactions, categories, wallets } = useFinFlowStore();
+  const { transactions, categories, wallets } = useCashCoreStore();
   const [period, setPeriod] = useState<Period>("30d");
 
   // Filter transactions by period
@@ -199,7 +199,7 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `finflow-reporte-${period}.csv`;
+    a.download = `cashcore-reporte-${period}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }

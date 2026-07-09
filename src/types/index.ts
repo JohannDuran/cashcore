@@ -1,4 +1,4 @@
-// FinFlow — Type Definitions
+// CashCore — Type Definitions
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
 export type WalletType = 'cash' | 'bank' | 'credit' | 'loan' | 'ewallet' | 'crypto' | 'investment';

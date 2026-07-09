@@ -1,6 +1,6 @@
 "use client";
 
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import { CategoryManagerCard } from "@/components/settings/category-manager-card
 import { TagManagerCard } from "@/components/settings/tag-manager-card";
 
 export default function SettingsPage() {
-  const { user, updateUser } = useFinFlowStore();
+  const { user, updateUser } = useCashCoreStore();
   const { theme, setTheme } = useTheme();
 
   const themeOptions = [
@@ -40,7 +40,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold font-display">Configuración</h2>
-        <p className="text-sm text-muted-foreground">Personaliza tu experiencia en FinFlow</p>
+        <p className="text-sm text-muted-foreground">Personaliza tu experiencia en CashCore</p>
       </div>
 
       {/* Fila 1 — Perfil + Preferencias */}
@@ -156,7 +156,7 @@ export default function SettingsPage() {
             </Button>
             <Separator />
             <div className="space-y-1 text-xs text-muted-foreground pt-1">
-              <p>FinFlow v0.1.0 · Hecho con ❤️ por Johann</p>
+              <p>CashCore v0.1.0 · Hecho con ❤️ por Johann</p>
               <div className="flex gap-3">
                 <button className="text-primary hover:underline cursor-pointer">Privacidad</button>
                 <button className="text-primary hover:underline cursor-pointer">Términos</button>

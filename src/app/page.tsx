@@ -381,7 +381,7 @@ export default function LandingPage() {
           </div>
           <Separator className="mb-6" />
           <p className="text-xs text-muted-foreground text-center">
-            © {new Date().getFullYear()} FinFlow. Todos los derechos reservados.
+            © {new Date().getFullYear()} CashCore. Todos los derechos reservados.
           </p>
         </div>
       </footer>

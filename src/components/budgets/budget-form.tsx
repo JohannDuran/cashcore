@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { cn, generateId } from "@/lib/utils";
 import type { BudgetPeriod, Budget } from "@/types";
 import { createBudgetAction, updateBudgetAction, deleteBudgetAction } from "@/app/actions/budget.actions";
@@ -40,7 +40,7 @@ const periodOptions: { value: BudgetPeriod; label: string }[] = [
 ];
 
 export function BudgetFormModal() {
-  const { activeModal, setActiveModal, editingItem, setEditingItem, categories, wallets, addBudget, updateBudget, deleteBudget, user } = useFinFlowStore();
+  const { activeModal, setActiveModal, editingItem, setEditingItem, categories, wallets, addBudget, updateBudget, deleteBudget, user } = useCashCoreStore();
 
   const isOpen = activeModal === "budget-form";
   const editBudget = editingItem as Budget | null;

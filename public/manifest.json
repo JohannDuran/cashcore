@@ -1,6 +1,6 @@
 {
-  "name": "FinFlow",
-  "short_name": "FinFlow",
+  "name": "CashCore",
+  "short_name": "CashCore",
   "description": "Controla gastos, maneja presupuestos y alcanza tus metas financieras.",
   "start_url": "/dashboard",
   "display": "standalone",

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
@@ -38,7 +38,7 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { sidebarCollapsed, toggleSidebar, user, logout } = useFinFlowStore();
+  const { sidebarCollapsed, toggleSidebar, user, logout } = useCashCoreStore();
 
   const handleLogout = () => {
     logout();

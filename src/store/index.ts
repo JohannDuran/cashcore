@@ -16,7 +16,7 @@ import { generateId } from "@/lib/utils";
 // STORE INTERFACE
 // ──────────────────────────────────────────────
 
-interface FinFlowState {
+interface CashCoreState {
   // Data
   user: User | null;
   transactions: Transaction[];
@@ -109,7 +109,7 @@ function calculateBudgetSpent(
 // STORE
 // ──────────────────────────────────────────────
 
-export const useFinFlowStore = create<FinFlowState>((set, get) => ({
+export const useCashCoreStore = create<CashCoreState>((set, get) => ({
   // Initial data
   user: null as any,
   transactions: [],

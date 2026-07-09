@@ -52,7 +52,7 @@ export const transferCategory: Category = {
 
 export const mockUser: User = {
   id: "u1",
-  email: "johann@finflow.app",
+  email: "johann@cashcore.app",
   name: "Johann",
   avatarUrl: undefined,
   defaultCurrency: "MXN",

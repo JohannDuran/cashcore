@@ -19,7 +19,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "FinFlow — Todas tus finanzas. Una sola app.",
+  title: "CashCore — Todas tus finanzas. Una sola app.",
   description:
     "Controla gastos, maneja presupuestos y alcanza tus metas financieras. Todo en un solo lugar. Cero excusas.",
   keywords: ["finanzas personales", "presupuesto", "gastos", "fintech", "ahorro"],
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "FinFlow",
+    title: "CashCore",
   },
   other: {
     "mobile-web-app-capable": "yes",

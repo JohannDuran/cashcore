@@ -10,7 +10,7 @@ export const subscriptionService = {
   },
 
   async createSubscription(userId: string, data: any) {
-    const { categoryId, walletId, ...rest } = data;
+    const { categoryId, walletId, userId: _userId, ...rest } = data;
     return prisma.subscription.create({
       data: {
         ...rest,
@@ -22,7 +22,7 @@ export const subscriptionService = {
   },
 
   async updateSubscription(userId: string, subscriptionId: string, data: any) {
-    const { categoryId, walletId, ...rest } = data;
+    const { categoryId, walletId, userId: _userId, ...rest } = data;
     return prisma.subscription.update({
       where: { id: subscriptionId, userId },
       data: {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { cn, generateId, formatCurrency } from "@/lib/utils";
 import type { GoalType, Goal } from "@/types";
 import { createGoalAction, updateGoalAction, deleteGoalAction } from "@/app/actions/goal.actions";
@@ -60,7 +60,7 @@ export function GoalFormModal() {
     deleteGoal,
     wallets,
     user 
-  } = useFinFlowStore();
+  } = useCashCoreStore();
 
   const isOpen = activeModal === "goal-form";
   const editGoal = editingItem as Goal | null;

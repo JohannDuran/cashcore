@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { TransactionItem } from "@/components/transactions/transaction-item";
 import { formatDateGroup } from "@/lib/utils";
 import type { Transaction, Category, Wallet } from "@/types";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -13,7 +13,7 @@ interface TransactionListProps {
 }
 
 export function TransactionList({ transactions, categories, wallets }: TransactionListProps) {
-  const { setActiveModal, setEditingItem } = useFinFlowStore();
+  const { setActiveModal, setEditingItem } = useCashCoreStore();
 
   const grouped = useMemo(() => {
     // Primero, sanitizamos las fechas de todas las transacciones

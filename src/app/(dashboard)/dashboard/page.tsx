@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { StatsCards } from "@/components/dashboard/stats-cards";
 import { SpendingChart } from "@/components/dashboard/spending-chart";
 import { CategoryBreakdown } from "@/components/dashboard/category-breakdown";
@@ -9,7 +9,7 @@ import { RecentTransactions } from "@/components/dashboard/recent-transactions";
 import { BudgetOverview } from "@/components/dashboard/budget-overview";
 
 export default function DashboardPage() {
-  const { transactions, wallets, budgets, categories } = useFinFlowStore();
+  const { transactions, wallets, budgets, categories } = useCashCoreStore();
 
   const stats = useMemo(() => {
     const now = new Date();

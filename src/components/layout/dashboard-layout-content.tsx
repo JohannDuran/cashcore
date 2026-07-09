@@ -4,11 +4,11 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { TransactionFormModal } from "@/components/transactions/transaction-form";
-import { useFinFlowStore } from "@/store";
+import { useCashCoreStore } from "@/store";
 import { cn } from "@/lib/utils";
 
 export function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
-  const { sidebarCollapsed } = useFinFlowStore();
+  const { sidebarCollapsed } = useCashCoreStore();
 
   return (
     <div className="min-h-screen bg-background">
