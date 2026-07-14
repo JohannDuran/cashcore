@@ -32,11 +32,12 @@ import { IconRenderer } from "@/components/shared/icon-renderer";
 import { toast } from "sonner";
 import { Trash2, Wallet as WalletIcon } from "lucide-react";
 
-const periodOptions: { value: BudgetPeriod; label: string }[] = [
-  { value: "weekly", label: "Semanal" },
-  { value: "biweekly", label: "Quincenal" },
-  { value: "monthly", label: "Mensual" },
-  { value: "yearly", label: "Anual" },
+const periodOptions: { value: BudgetPeriod; label: string; days: number }[] = [
+  { value: "weekly", label: "Semanal", days: 7 },
+  { value: "biweekly", label: "Catorcenal", days: 14 },
+  { value: "quincenal", label: "Quincenal", days: 15 },
+  { value: "monthly", label: "Mensual", days: 30 },
+  { value: "yearly", label: "Anual", days: 365 },
 ];
 
 export function BudgetFormModal() {
@@ -52,10 +53,33 @@ export function BudgetFormModal() {
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [walletIds, setWalletIds] = useState<string[]>([]);
   const [rollover, setRollover] = useState(false);
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(() => getAutoEndDate(new Date().toISOString().split("T")[0], "monthly"));
+  const [endDateManuallySet, setEndDateManuallySet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const activeWallets = wallets.filter((w) => !w.isArchived);
+
+  function getAutoEndDate(start: string | Date, prd: BudgetPeriod): string {
+    const d = start instanceof Date ? new Date(start) : new Date(start + "T00:00:00");
+    if (isNaN(d.getTime())) return "";
+    const days = periodOptions.find((p) => p.value === prd)?.days ?? 30;
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split("T")[0];
+  }
+
+  function toDateString(v: string | Date | undefined | null): string {
+    if (!v) return new Date().toISOString().split("T")[0];
+    if (v instanceof Date) return v.toISOString().split("T")[0];
+    return v.split("T")[0];
+  }
+
+  useEffect(() => {
+    if (!endDateManuallySet) {
+      setEndDate(getAutoEndDate(startDate, period));
+    }
+  }, [startDate, period, endDateManuallySet]);
 
   useEffect(() => {
     if (isEditing && editBudget) {
@@ -65,6 +89,13 @@ export function BudgetFormModal() {
       setCategoryIds(editBudget.categoryIds || []);
       setWalletIds(editBudget.walletIds || []);
       setRollover(editBudget.rollover);
+      const start = toDateString(editBudget.startDate);
+      setStartDate(start);
+      const existingEnd = editBudget.endDate
+        ? toDateString(editBudget.endDate)
+        : getAutoEndDate(start, editBudget.period);
+      setEndDate(existingEnd);
+      setEndDateManuallySet(!!editBudget.endDate);
     } else {
       resetForm();
     }
@@ -77,6 +108,9 @@ export function BudgetFormModal() {
     setCategoryIds([]);
     setWalletIds([]);
     setRollover(false);
+    setStartDate(new Date().toISOString().split("T")[0]);
+    setEndDate(getAutoEndDate(new Date().toISOString().split("T")[0], "monthly"));
+    setEndDateManuallySet(false);
   }
 
   function handleClose() {
@@ -131,7 +165,8 @@ export function BudgetFormModal() {
       period,
       categoryIds,
       walletIds,
-      startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0],
+      startDate,
+      endDate,
       rollover,
       isActive: true,
     };
@@ -242,6 +277,35 @@ export function BudgetFormModal() {
                   {opt.label}
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="budget-start-date">Inicio del período</Label>
+              <Input
+                id="budget-start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setEndDateManuallySet(false);
+                }}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="budget-end-date">Fin del período</Label>
+              <Input
+                id="budget-end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setEndDateManuallySet(true);
+                }}
+                className="mt-1"
+              />
             </div>
           </div>
 

@@ -90,16 +90,29 @@ function calculateBudgetSpent(
   budget: Budget,
   transactions: Transaction[]
 ): number {
-  const startDate = new Date(budget.startDate);
+  const startDate = (budget.startDate as any) instanceof Date
+    ? (budget.startDate as any) as Date
+    : new Date((budget.startDate || "") + "T00:00:00");
+  if (isNaN(startDate.getTime())) return 0;
+
   const now = new Date();
+  let endDate = now;
+  if (budget.endDate) {
+    const parsedEnd = (budget.endDate as any) instanceof Date
+      ? (budget.endDate as any) as Date
+      : new Date((budget.endDate || "") + "T23:59:59");
+    if (!isNaN(parsedEnd.getTime())) {
+      endDate = parsedEnd < now ? parsedEnd : now;
+    }
+  }
 
   return transactions
     .filter(
       (t) =>
-        (t.type === "expense" || t.type === "transfer") &&
+        t.type === "expense" &&
         budget.categoryIds.includes(t.categoryId) &&
         new Date(t.date) >= startDate &&
-        new Date(t.date) <= now &&
+        new Date(t.date) <= endDate &&
         (budget.walletIds.length === 0 || budget.walletIds.includes(t.walletId))
     )
     .reduce((sum, t) => sum + t.amount, 0);

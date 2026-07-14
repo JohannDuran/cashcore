@@ -18,6 +18,7 @@ export function StoreHydrator({ data }: { data: any }) {
         goals: data.goals,
         subscriptions: data.subscriptions,
       });
+      useCashCoreStore.getState().recalculateBudgets();
       initialized.current = true;
     }
   }, [data]);

@@ -2,7 +2,7 @@
 
 export type TransactionType = 'income' | 'expense' | 'transfer';
 export type WalletType = 'cash' | 'bank' | 'credit' | 'loan' | 'ewallet' | 'crypto' | 'investment';
-export type BudgetPeriod = 'weekly' | 'biweekly' | 'monthly' | 'yearly';
+export type BudgetPeriod = 'weekly' | 'biweekly' | 'quincenal' | 'monthly' | 'yearly';
 export type Currency = 'USD' | 'MXN' | 'EUR' | 'COP' | 'ARS' | 'BRL' | 'PEN' | 'CLP';
 
 export interface User {

@@ -181,7 +181,8 @@ export const currencies = [
 
 export const budgetPeriodLabels: Record<string, string> = {
   weekly: "Semanal",
-  biweekly: "Quincenal",
+  biweekly: "Catorcenal",
+  quincenal: "Quincenal",
   monthly: "Mensual",
   yearly: "Anual",
 };

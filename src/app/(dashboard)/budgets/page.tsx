@@ -2,6 +2,7 @@
 
 import { useCashCoreStore } from "@/store";
 import { BudgetCard } from "@/components/budgets/budget-card";
+import { BudgetDashboard } from "@/components/budgets/budget-dashboard";
 import { BudgetFormModal } from "@/components/budgets/budget-form";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -25,7 +26,7 @@ import { useState } from "react";
 import type { Budget } from "@/types";
 
 export default function BudgetsPage() {
-  const { budgets, categories, wallets, setActiveModal, setEditingItem, deleteBudget } = useCashCoreStore();
+  const { budgets, categories, wallets, transactions, setActiveModal, setEditingItem, deleteBudget } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Budget | null>(null);
 
   const activeBudgets = budgets.filter((b) => b.isActive);
@@ -88,6 +89,15 @@ export default function BudgetsPage() {
             />
           </CardContent>
         </Card>
+      )}
+
+      {/* Budget Dashboard with daily suggestions */}
+      {activeBudgets.length > 0 && (
+        <BudgetDashboard
+          budgets={activeBudgets}
+          transactions={transactions}
+          categories={categories}
+        />
       )}
 
       {/* Budget Grid */}
