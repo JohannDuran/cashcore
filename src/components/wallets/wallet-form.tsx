@@ -37,6 +37,7 @@ import { currencies } from "@/lib/constants";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import type { Currency } from "@/types";
+import { Switch } from "@/components/ui/switch";
 
 const walletTypes: { value: WalletType; label: string; icon: string }[] = [
   { value: "cash", label: "Efectivo", icon: "Banknote" },
@@ -81,6 +82,8 @@ export function WalletFormModal() {
   const [paymentDueDay, setPaymentDueDay] = useState("");
   const [icon, setIcon] = useState("Building2");
   const [color, setColor] = useState("#3B82F6");
+  const [interestEnabled, setInterestEnabled] = useState(false);
+  const [interestRate, setInterestRate] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const resetForm = useCallback(() => {
@@ -93,6 +96,8 @@ export function WalletFormModal() {
     setPaymentDueDay("");
     setIcon("Building2");
     setColor("#3B82F6");
+    setInterestEnabled(false);
+    setInterestRate("");
   }, []);
 
   useEffect(() => {
@@ -106,6 +111,8 @@ export function WalletFormModal() {
       setPaymentDueDay(editWallet.paymentDueDay?.toString() || "");
       setIcon(editWallet.icon);
       setColor(editWallet.color);
+      setInterestEnabled(editWallet.interestEnabled || false);
+      setInterestRate(editWallet.interestRate?.toString() || "");
     } else {
       resetForm();
     }
@@ -199,6 +206,13 @@ export function WalletFormModal() {
       color,
       isArchived: false,
       sortOrder: 0,
+      interestEnabled,
+      interestRate: interestEnabled ? (parseFloat(interestRate) || null) : null,
+      interestStartDate: interestEnabled
+        ? (editWallet?.interestEnabled && editWallet?.interestStartDate
+            ? editWallet.interestStartDate
+            : new Date())
+        : null,
     };
 
     if (isEditing && editWallet) {
@@ -371,6 +385,40 @@ export function WalletFormModal() {
                 />
               ))}
             </div>
+          </div>
+
+          {/* Interest */}
+          <div className="space-y-3 rounded-lg border p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="cursor-pointer" onClick={() => setInterestEnabled(!interestEnabled)}>
+                  Interés anual
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Calcula el rendimiento proyectado automáticamente
+                </p>
+              </div>
+              <Switch
+                checked={interestEnabled}
+                onCheckedChange={setInterestEnabled}
+              />
+            </div>
+            {interestEnabled && (
+              <div>
+                <Label htmlFor="interest-rate">Tasa de interés anual (%)</Label>
+                <Input
+                  id="interest-rate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  placeholder="15.00"
+                  value={interestRate}
+                  onChange={(e) => setInterestRate(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            )}
           </div>
 
           {/* Actions */}

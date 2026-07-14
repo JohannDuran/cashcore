@@ -115,3 +115,45 @@ export function convertCurrency(amount: number, from: Currency, to: Currency): n
   if (from === to) return amount;
   return (amount * ratesToUSD[from]) / ratesToUSD[to];
 }
+
+export interface InterestProjection {
+  projectedBalance: number;
+  interestEarned: number;
+  dailyInterest: number;
+  annualYield: number;
+  daysElapsed: number;
+}
+
+export function calculateInterestProjection(
+  balance: number,
+  annualRate: number,
+  startDate: Date,
+  now: Date = new Date()
+): InterestProjection {
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysElapsed = Math.max(0, Math.floor((now.getTime() - startDate.getTime()) / msPerDay));
+
+  if (daysElapsed === 0 || annualRate === 0) {
+    return {
+      projectedBalance: balance,
+      interestEarned: 0,
+      dailyInterest: 0,
+      annualYield: 0,
+      daysElapsed,
+    };
+  }
+
+  const dailyRate = Math.pow(1 + annualRate / 100, 1 / 365) - 1;
+  const projectedBalance = balance * Math.pow(1 + dailyRate, daysElapsed);
+  const interestEarned = projectedBalance - balance;
+  const dailyInterest = balance * dailyRate;
+  const annualYield = balance * (annualRate / 100);
+
+  return {
+    projectedBalance,
+    interestEarned,
+    dailyInterest,
+    annualYield,
+    daysElapsed,
+  };
+}

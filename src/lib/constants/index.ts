@@ -89,6 +89,9 @@ export const mockWallets: Wallet[] = [
     color: "#22C55E",
     isArchived: false,
     sortOrder: 0,
+    interestEnabled: false,
+    interestRate: null,
+    interestStartDate: null,
     createdAt: new Date("2025-01-15"),
   },
   {
@@ -102,6 +105,9 @@ export const mockWallets: Wallet[] = [
     color: "#3B82F6",
     isArchived: false,
     sortOrder: 1,
+    interestEnabled: false,
+    interestRate: null,
+    interestStartDate: null,
     createdAt: new Date("2025-01-15"),
   },
 ];

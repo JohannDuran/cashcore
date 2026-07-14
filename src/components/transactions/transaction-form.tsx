@@ -198,6 +198,7 @@ export function TransactionFormModal() {
       balance: parseFloat(newWalletBalance) || 0,
       icon: walletIcon, color: newWalletColor,
       isArchived: false, sortOrder: wallets.length,
+      interestEnabled: false, interestRate: null, interestStartDate: null,
     };
     setShowNewWallet(false);
     setNewWalletName(""); setNewWalletBalance("0"); setNewWalletColor("#3B82F6");

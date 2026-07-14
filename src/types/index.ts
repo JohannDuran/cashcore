@@ -30,6 +30,9 @@ export interface Wallet {
   color: string;
   isArchived: boolean;
   sortOrder: number;
+  interestEnabled: boolean;
+  interestRate?: number | null;
+  interestStartDate?: Date | null;
   createdAt: Date;
 }
 

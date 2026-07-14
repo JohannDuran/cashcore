@@ -8,7 +8,8 @@ import { IconRenderer } from "@/components/shared/icon-renderer";
 import { walletTypeLabels } from "@/lib/constants";
 import type { Transaction, Wallet } from "@/types";
 import { Edit } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, calculateInterestProjection } from "@/lib/utils";
+import { useMemo } from "react";
 
 interface WalletCardProps {
   wallet: Wallet;
@@ -54,6 +55,16 @@ export function WalletCard({ wallet, onEdit, onClick, currentDate, transactions 
     : paidThisMonth > 0 ? 100 : 0;
   const hasPaymentDetails = isDebt && (wallet.monthlyPayment || wallet.paymentDueDay || paidThisMonth > 0);
 
+  const interestProjection = useMemo(() => {
+    if (!wallet.interestEnabled || !wallet.interestRate) return null;
+    const startDate = wallet.interestStartDate
+      ? new Date(wallet.interestStartDate)
+      : new Date(wallet.createdAt);
+    return calculateInterestProjection(wallet.balance, wallet.interestRate, startDate, currentDate);
+  }, [wallet.interestEnabled, wallet.interestRate, wallet.interestStartDate, wallet.createdAt, wallet.balance, currentDate]);
+
+  const hasInterest = !!interestProjection && wallet.interestRate && wallet.interestRate > 0;
+
   return (
     <Card
       className={cn(
@@ -92,14 +103,22 @@ export function WalletCard({ wallet, onEdit, onClick, currentDate, transactions 
 
         {isDebt ? (
           <div className="space-y-1">
-            <p className="text-xs text-muted-foreground">Deuda actual</p>
+            <p className="text-xs text-muted-foreground">
+              {hasInterest ? "Deuda proyectada" : "Deuda actual"}
+            </p>
             <CurrencyDisplay
-              amount={debtAmount}
+              amount={hasInterest ? Math.max(-interestProjection!.projectedBalance, 0) : debtAmount}
               currency={wallet.currency}
               type={debtAmount > 0 ? "expense" : "neutral"}
               size="lg"
               className="block"
             />
+            {hasInterest && (
+              <p className="text-xs text-muted-foreground">
+                Deuda base:{" "}
+                <CurrencyDisplay amount={debtAmount} currency={wallet.currency} size="sm" />
+              </p>
+            )}
             {debtBalanceInFavor > 0 && (
               <p className="text-xs text-emerald-500">
                 Saldo a favor:{" "}
@@ -112,13 +131,21 @@ export function WalletCard({ wallet, onEdit, onClick, currentDate, transactions 
             )}
           </div>
         ) : (
-          <CurrencyDisplay
-            amount={wallet.balance}
-            currency={wallet.currency}
-            showSign={wallet.balance < 0}
-            size="lg"
-            className={cn("block mb-2", wallet.balance < 0 && "text-expense")}
-          />
+          <>
+            <CurrencyDisplay
+              amount={hasInterest ? interestProjection!.projectedBalance : wallet.balance}
+              currency={wallet.currency}
+              showSign={wallet.balance < 0}
+              size="lg"
+              className={cn("block mb-1", wallet.balance < 0 && "text-expense")}
+            />
+            {hasInterest && (
+              <p className="text-xs text-muted-foreground mb-2">
+                Saldo base:{" "}
+                <CurrencyDisplay amount={wallet.balance} currency={wallet.currency} size="sm" />
+              </p>
+            )}
+          </>
         )}
 
         <p className="text-xs text-muted-foreground">{wallet.currency}</p>
@@ -196,6 +223,46 @@ export function WalletCard({ wallet, onEdit, onClick, currentDate, transactions 
                 indicatorClassName={paymentProgress >= 100 ? "bg-emerald-500" : "bg-primary"}
               />
             )}
+          </div>
+        )}
+
+        {hasInterest && interestProjection && (
+          <div className="mt-3 space-y-1.5 rounded-lg bg-muted/50 p-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] text-muted-foreground">Tasa anual</p>
+              <p className="text-xs font-medium">{wallet.interestRate}%</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-[10px] text-muted-foreground">
+                  {isDebt ? "Interés acumulado" : "Rendimiento generado"}
+                </p>
+                <CurrencyDisplay
+                  amount={Math.abs(interestProjection.interestEarned)}
+                  currency={wallet.currency}
+                  type={isDebt ? "expense" : "income"}
+                  size="sm"
+                  className="font-medium"
+                />
+              </div>
+              <div>
+                <p className="text-[10px] text-muted-foreground">Rendimiento diario</p>
+                <CurrencyDisplay
+                  amount={Math.abs(interestProjection.dailyInterest)}
+                  currency={wallet.currency}
+                  type={isDebt ? "expense" : "income"}
+                  size="sm"
+                  className="font-medium"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground text-right">
+              {interestProjection.daysElapsed} días desde{" "}
+              {(wallet.interestStartDate
+                ? new Date(wallet.interestStartDate)
+                : new Date(wallet.createdAt)
+              ).toLocaleDateString("es-MX")}
+            </p>
           </div>
         )}
       </CardContent>
