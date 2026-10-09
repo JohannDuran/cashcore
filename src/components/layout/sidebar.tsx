@@ -22,12 +22,14 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeft,
+  CircleDollarSign,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/transactions", label: "Transacciones", icon: ArrowLeftRight },
   { href: "/wallets", label: "Wallets", icon: Wallet },
+  { href: "/debts", label: "Deudas", icon: CircleDollarSign },
   { href: "/budgets", label: "Presupuestos", icon: PieChart },
   { href: "/reports", label: "Reportes", icon: BarChart3 },
   { href: "/goals", label: "Metas", icon: Target },

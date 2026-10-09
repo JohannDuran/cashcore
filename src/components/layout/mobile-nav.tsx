@@ -18,6 +18,7 @@ import {
   Settings,
   LogOut,
   X,
+  CircleDollarSign,
 } from "lucide-react";
 
 const primaryNav = [
@@ -28,6 +29,7 @@ const primaryNav = [
 ];
 
 const moreNav = [
+  { href: "/debts", label: "Deudas", icon: CircleDollarSign },
   { href: "/budgets", label: "Presupuestos", icon: PieChart },
   { href: "/reports", label: "Reportes", icon: BarChart3 },
   { href: "/goals", label: "Metas", icon: Target },

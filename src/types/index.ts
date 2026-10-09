@@ -147,6 +147,32 @@ export interface Goal {
 
 export type BillingCycle = 'weekly' | 'monthly' | 'yearly';
 
+// ──────────────────────────────────────────────
+// DEBTS
+// ──────────────────────────────────────────────
+
+export type DebtType = 'personal_credit' | 'credit_card' | 'personal_loan' | 'department_store' | 'mortgage' | 'car_loan' | 'other';
+
+export interface Debt {
+  id: string;
+  userId: string;
+  name: string;
+  type: DebtType;
+  currency: Currency;
+  originalAmount: number;
+  currentBalance: number;
+  interestRate?: number | null;
+  minimumPayment?: number | null;
+  paymentDueDay?: number | null;
+  startDate: string;
+  endDate?: string | null;
+  icon: string;
+  color: string;
+  isActive: boolean;
+  notes?: string | null;
+  createdAt: Date;
+}
+
 export interface Subscription {
   id: string;
   userId: string;

@@ -161,6 +161,30 @@ export const walletTypeIcons: Record<string, string> = {
 };
 
 // ──────────────────────────────────────────────
+// DEBT TYPE LABELS & ICONS
+// ──────────────────────────────────────────────
+
+export const debtTypeLabels: Record<string, string> = {
+  personal_credit: "Crédito Personal",
+  credit_card: "Tarjeta de Crédito",
+  personal_loan: "Préstamo Personal",
+  department_store: "Tarjeta Departamental",
+  mortgage: "Hipoteca",
+  car_loan: "Crédito Automotriz",
+  other: "Otro",
+};
+
+export const debtTypeIcons: Record<string, string> = {
+  personal_credit: "Banknote",
+  credit_card: "CreditCard",
+  personal_loan: "HandCoins",
+  department_store: "ShoppingBag",
+  mortgage: "Home",
+  car_loan: "Car",
+  other: "CircleDollarSign",
+};
+
+// ──────────────────────────────────────────────
 // CURRENCIES
 // ──────────────────────────────────────────────
 
@@ -200,4 +224,12 @@ export const mockGoals: Goal[] = [];
 // ──────────────────────────────────────────────
 
 export const mockSubscriptions: Subscription[] = [];
+
+// ──────────────────────────────────────────────
+// MOCK DEBTS
+// ──────────────────────────────────────────────
+
+import type { Debt } from "@/types";
+
+export const mockDebts: Debt[] = [];
 

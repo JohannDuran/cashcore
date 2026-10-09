@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Transaction, Wallet, Budget, Category, User, Tag, Goal, Subscription } from "@/types";
+import type { Transaction, Wallet, Budget, Category, User, Tag, Goal, Subscription, Debt } from "@/types";
 import {
   mockTransactions,
   mockWallets,
@@ -9,6 +9,7 @@ import {
   mockTags,
   mockGoals,
   mockSubscriptions,
+  mockDebts,
 } from "@/lib/constants";
 import { generateId } from "@/lib/utils";
 
@@ -26,11 +27,12 @@ interface CashCoreState {
   tags: Tag[];
   goals: Goal[];
   subscriptions: Subscription[];
+  debts: Debt[];
 
   // UI State
   sidebarCollapsed: boolean;
   activeModal: string | null;
-  editingItem: Transaction | Wallet | Budget | Goal | Subscription | null;
+  editingItem: Transaction | Wallet | Budget | Goal | Subscription | Debt | null;
 
   // Actions — User
   updateUser: (data: Partial<User>) => void;
@@ -71,10 +73,15 @@ interface CashCoreState {
   updateSubscription: (id: string, data: Partial<Subscription>) => void;
   deleteSubscription: (id: string) => void;
 
+  // Actions — Debts
+  addDebt: (debt: Omit<Debt, "id" | "createdAt"> & { id?: string }) => void;
+  updateDebt: (id: string, data: Partial<Debt>) => void;
+  deleteDebt: (id: string) => void;
+
   // Actions — UI
   toggleSidebar: () => void;
   setActiveModal: (modal: string | null) => void;
-  setEditingItem: (item: Transaction | Wallet | Budget | Goal | Subscription | null) => void;
+  setEditingItem: (item: Transaction | Wallet | Budget | Goal | Subscription | Debt | null) => void;
 
   // Computed helpers
   getWalletById: (id: string) => Wallet | undefined;
@@ -132,6 +139,7 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
   tags: [],
   goals: [],
   subscriptions: [],
+  debts: [],
 
   // UI state
   sidebarCollapsed: false,
@@ -402,6 +410,22 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
   deleteSubscription: (id) =>
     set((state) => ({
       subscriptions: state.subscriptions.filter((s) => s.id !== id),
+    })),
+
+  // ── Debts ──
+  addDebt: (debtData) =>
+    set((state) => ({
+      debts: [...state.debts, { ...debtData, id: debtData.id || generateId(), createdAt: new Date() }],
+    })),
+
+  updateDebt: (id, data) =>
+    set((state) => ({
+      debts: state.debts.map((d) => (d.id === id ? { ...d, ...data } : d)),
+    })),
+
+  deleteDebt: (id) =>
+    set((state) => ({
+      debts: state.debts.filter((d) => d.id !== id),
     })),
 
   // ── UI ──
