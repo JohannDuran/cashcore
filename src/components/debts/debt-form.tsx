@@ -131,7 +131,7 @@ export function DebtFormModal() {
     if (!editDebt) return;
     deleteDebt(editDebt.id);
     toast.success("Deuda eliminada");
-    deleteDebtAction(user?.id || "", editDebt.id).catch((err) => {
+    deleteDebtAction(editDebt.id).catch((err) => {
       console.error(err);
       toast.error("Error al eliminar en la nube");
     });
@@ -187,7 +187,7 @@ export function DebtFormModal() {
 
     if (isEditing && editDebt) {
       updateDebt(editDebt.id, debtData);
-      const res = await updateDebtAction(user?.id || "", editDebt.id, debtData);
+      const res = await updateDebtAction(editDebt.id, debtData);
       if (res.success) {
         toast.success("Deuda actualizada");
       } else {

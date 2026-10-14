@@ -3,13 +3,14 @@
 import { debtService } from "@/lib/services/debt.service";
 import type { Debt } from "@/types";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeError } from "@/lib/utils";
 import logger from "@/lib/logger";
 
 /**
  * Normaliza las llaves de la capa frontend hacia la estructura de Prisma
  */
 function mapFrontendToDb(frontendDebt: Partial<Debt>) {
-  const dbData: any = { ...frontendDebt };
+  const dbData: Record<string, unknown> = { ...frontendDebt };
   
   if (dbData.startDate && typeof dbData.startDate === 'string') {
     dbData.startDate = new Date(dbData.startDate);
@@ -35,9 +36,9 @@ export async function getDebtsAction() {
 
     const debts = await debtService.getDebts(user.id);
     return { success: true, data: debts };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "getDebtsAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
@@ -51,17 +52,13 @@ export async function createDebtAction(debt: Omit<Debt, "createdAt"> & { id?: st
     const newDebt = await debtService.createDebt(user.id, dbData);
 
     return { success: true, data: newDebt };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "createDebtAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
-export async function updateDebtAction(
-  userId: string, // Kept for signature compatibility 
-  debtId: string,
-  data: Partial<Debt>
-) {
+export async function updateDebtAction(debtId: string, data: Partial<Debt>) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -75,20 +72,16 @@ export async function updateDebtAction(
     delete dbData.createdAt;
     delete dbData.updatedAt;
 
-    const updatedDebt = await debtService.updateDebt(
-      user.id,
-      debtId,
-      dbData
-    );
+    const updatedDebt = await debtService.updateDebt(user.id, debtId, dbData);
 
     return { success: true, data: updatedDebt };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "updateDebtAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
-export async function deleteDebtAction(userId: string, debtId: string) {
+export async function deleteDebtAction(debtId: string) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -96,8 +89,8 @@ export async function deleteDebtAction(userId: string, debtId: string) {
 
     await debtService.deleteDebt(user.id, debtId);
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "deleteDebtAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }

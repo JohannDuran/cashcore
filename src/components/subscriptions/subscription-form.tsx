@@ -138,7 +138,7 @@ export function SubscriptionFormModal() {
     if (!editSub) return;
     deleteSubscription(editSub.id);
     toast.success("Suscripción eliminada");
-    deleteSubscriptionAction(user?.id || "", editSub.id).catch((err) => {
+    deleteSubscriptionAction(editSub.id).catch((err) => {
       logger.error({ err }, "deleteSubscription failed");
       toast.error("Error al eliminar en la nube");
     });
@@ -197,13 +197,13 @@ export function SubscriptionFormModal() {
       color,
       isActive,
       isDomiciliado,
-      walletId: isDomiciliado ? walletId : undefined,
+      walletId: isDomiciliado && walletId ? walletId : null,
       notes: notes.trim() || undefined,
     };
 
     if (isEditing && editSub) {
       updateSubscription(editSub.id, subData);
-      const res = await updateSubscriptionAction(user?.id || "", editSub.id, subData);
+      const res = await updateSubscriptionAction(editSub.id, subData);
       if (res.success) {
         toast.success("Suscripción actualizada");
       } else {

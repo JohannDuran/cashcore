@@ -2,6 +2,7 @@
 
 import { categoryService } from "@/lib/services/category.service";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeError } from "@/lib/utils";
 
 export async function createCategoryAction(data: {
   name: string;
@@ -16,8 +17,8 @@ export async function createCategoryAction(data: {
 
     const category = await categoryService.createCustomCategory(user.id, data);
     return { success: true, data: category };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
@@ -29,7 +30,7 @@ export async function deleteCategoryAction(categoryId: string) {
 
     await categoryService.deleteCustomCategory(user.id, categoryId);
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: sanitizeError(error) };
   }
 }

@@ -14,7 +14,7 @@ export const walletService = {
     });
   },
 
-  async createWallet(userId: string, data: any) {
+  async createWallet(userId: string, data: Record<string, unknown>) {
     return prisma.wallet.create({
       data: {
         ...data,
@@ -23,7 +23,7 @@ export const walletService = {
     });
   },
 
-  async updateWallet(userId: string, walletId: string, data: any) {
+  async updateWallet(userId: string, walletId: string, data: Record<string, unknown>) {
     const updateData = { ...data };
     delete updateData.id;
     delete updateData.userId;

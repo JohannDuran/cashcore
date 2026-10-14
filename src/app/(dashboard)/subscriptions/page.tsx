@@ -115,9 +115,9 @@ export default function SubscriptionsPage() {
       const effective = getEffectiveNextBillDate(sub.nextBillDate, sub.billingCycle, today);
       const newDate = effective.toISOString();
       updateSubscription(sub.id, { nextBillDate: newDate });
-      updateSubscriptionAction(user.id, sub.id, { nextBillDate: newDate });
+      updateSubscriptionAction(sub.id, { nextBillDate: newDate });
     });
-  }, [subscriptions, user, updateSubscription, today]);
+  }, [subscriptions, user?.id, updateSubscription, today]);
 
   const activeSubs = useMemo(
     () => subscriptions.filter((subscription) => subscription.isActive),

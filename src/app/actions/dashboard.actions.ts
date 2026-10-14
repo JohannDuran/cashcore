@@ -74,8 +74,8 @@ export async function getDashboardDataAction() {
         subscriptions
       }
     };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "getDashboardDataAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }

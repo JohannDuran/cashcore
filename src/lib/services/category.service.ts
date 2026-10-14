@@ -13,7 +13,7 @@ export const categoryService = {
     });
   },
 
-  async createCustomCategory(userId: string, data: any) {
+  async createCustomCategory(userId: string, data: Record<string, unknown>) {
     return prisma.category.create({
       data: {
         ...data,

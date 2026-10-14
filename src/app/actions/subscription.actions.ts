@@ -10,22 +10,27 @@ import logger from "@/lib/logger";
  * Normaliza las llaves de la capa frontend hacia la estructura de Prisma
  */
 function mapFrontendToDb(frontendSub: Partial<Subscription>) {
-  const dbData: any = { ...frontendSub };
-  
+  const dbData: Record<string, unknown> = { ...frontendSub };
+
   if (dbData.nextBillDate) {
-    dbData.nextBillDate = new Date(dbData.nextBillDate);
+    dbData.nextBillDate = new Date(dbData.nextBillDate as string);
   }
   if (dbData.createdAt) {
-    dbData.createdAt = new Date(dbData.createdAt);
+    dbData.createdAt = new Date(dbData.createdAt as string);
   }
   if (dbData.updatedAt) {
-    dbData.updatedAt = new Date(dbData.updatedAt);
+    dbData.updatedAt = new Date(dbData.updatedAt as string);
   }
+
+  // El userId real se deriva del token en cada action; se elimina del payload
+  delete dbData.userId;
 
   return dbData;
 }
 
-export async function createSubscriptionAction(sub: Omit<Subscription, "createdAt" | "updatedAt"> & { id?: string }) {
+export async function createSubscriptionAction(
+  sub: Omit<Subscription, "createdAt" | "updatedAt" | "userId"> & { id?: string }
+) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -33,20 +38,16 @@ export async function createSubscriptionAction(sub: Omit<Subscription, "createdA
 
     const dbData = mapFrontendToDb(sub);
 
-    const newSub = await subscriptionService.createSubscription(sub.userId, dbData);
+    const newSub = await subscriptionService.createSubscription(user.id, dbData);
 
     return { success: true, data: newSub };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "createSubscriptionAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
-export async function updateSubscriptionAction(
-  userId: string,
-  subId: string,
-  data: Partial<Subscription>
-) {
+export async function updateSubscriptionAction(subId: string, data: Partial<Subscription>) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -54,26 +55,16 @@ export async function updateSubscriptionAction(
 
     const dbData = mapFrontendToDb(data);
 
-    // Evitamos enviar campos que Prisma no acepta en update
-    delete dbData.id;
-    delete dbData.userId;
-    delete dbData.category;
-    delete dbData.createdAt;
-
-    const updatedSub = await subscriptionService.updateSubscription(
-      userId,
-      subId,
-      dbData
-    );
+    const updatedSub = await subscriptionService.updateSubscription(user.id, subId, dbData);
 
     return { success: true, data: updatedSub };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "updateSubscriptionAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
-export async function deleteSubscriptionAction(userId: string, subId: string) {
+export async function deleteSubscriptionAction(subId: string) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -81,8 +72,8 @@ export async function deleteSubscriptionAction(userId: string, subId: string) {
 
     await subscriptionService.deleteSubscription(user.id, subId);
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "deleteSubscriptionAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }

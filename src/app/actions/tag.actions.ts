@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { sanitizeError } from "@/lib/utils";
 
 export async function createTagAction(data: { name: string; color: string }) {
   try {
@@ -11,8 +12,8 @@ export async function createTagAction(data: { name: string; color: string }) {
 
     const tag = await prisma.tag.create({ data: { ...data, userId: user.id } });
     return { success: true, data: tag };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
@@ -27,8 +28,8 @@ export async function updateTagAction(tagId: string, data: { name?: string; colo
       data,
     });
     return { success: true, data: tag };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
@@ -46,7 +47,7 @@ export async function deleteTagAction(tagId: string) {
 
     await prisma.tag.delete({ where: { id: tagId, userId: user.id } });
     return { success: true };
-  } catch (error: any) {
-    return { success: false, error: error.message };
+  } catch (error) {
+    return { success: false, error: sanitizeError(error) };
   }
 }

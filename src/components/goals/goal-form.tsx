@@ -116,7 +116,7 @@ export function GoalFormModal() {
     if (!editGoal) return;
     deleteGoal(editGoal.id);
     toast.success("Meta eliminada");
-    deleteGoalAction(user?.id || "", editGoal.id).catch((err) => {
+    deleteGoalAction(editGoal.id).catch((err) => {
       console.error(err);
       toast.error("Error al eliminar en la nube");
     });
@@ -157,7 +157,7 @@ export function GoalFormModal() {
 
     if (isEditing && editGoal) {
       updateGoal(editGoal.id, goalData);
-      const res = await updateGoalAction(user?.id || "", editGoal.id, goalData);
+      const res = await updateGoalAction(editGoal.id, goalData);
       if (res.success) {
         toast.success("Meta actualizada");
       } else {

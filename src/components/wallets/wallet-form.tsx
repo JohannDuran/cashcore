@@ -129,7 +129,7 @@ export function WalletFormModal() {
     if (!editWallet) return;
     deleteWallet(editWallet.id);
     toast.success("Wallet eliminado");
-    deleteWalletAction(user?.id || "", editWallet.id).catch((err) => {
+    deleteWalletAction(editWallet.id).catch((err) => {
       console.error(err);
       toast.error("Error al eliminar en la nube");
     });
@@ -217,7 +217,7 @@ export function WalletFormModal() {
 
     if (isEditing && editWallet) {
       updateWallet(editWallet.id, walletData);
-      const res = await updateWalletAction(user?.id || "", editWallet.id, walletData);
+      const res = await updateWalletAction(editWallet.id, walletData);
       if (res.success) {
         toast.success("Wallet actualizado");
       } else {

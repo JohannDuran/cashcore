@@ -10,7 +10,7 @@ import logger from "@/lib/logger";
  * Normaliza las llaves de la capa frontend hacia la estructura de Prisma
  */
 function mapFrontendToDb(frontendWallet: Partial<Wallet>) {
-  const dbData: any = { ...frontendWallet };
+  const dbData: Record<string, unknown> = { ...frontendWallet };
   
   if (dbData.createdAt) {
     dbData.createdAt = new Date(dbData.createdAt);
@@ -34,17 +34,13 @@ export async function createWalletAction(wallet: Omit<Wallet, "createdAt"> & { i
     const newWallet = await walletService.createWallet(user.id, dbData);
 
     return { success: true, data: newWallet };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "createWalletAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
-export async function updateWalletAction(
-  userId: string, // Kept for signature compatibility 
-  walletId: string,
-  data: Partial<Wallet>
-) {
+export async function updateWalletAction(walletId: string, data: Partial<Wallet>) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -58,20 +54,16 @@ export async function updateWalletAction(
     delete dbData.createdAt;
     delete dbData.updatedAt;
 
-    const updatedWallet = await walletService.updateWallet(
-      user.id,
-      walletId,
-      dbData
-    );
+    const updatedWallet = await walletService.updateWallet(user.id, walletId, dbData);
 
     return { success: true, data: updatedWallet };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "updateWalletAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
-export async function deleteWalletAction(userId: string, walletId: string) {
+export async function deleteWalletAction(walletId: string) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -79,8 +71,8 @@ export async function deleteWalletAction(userId: string, walletId: string) {
 
     await walletService.deleteWallet(user.id, walletId);
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "deleteWalletAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }

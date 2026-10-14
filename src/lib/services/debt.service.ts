@@ -1,5 +1,16 @@
 import { prisma } from '../prisma';
 
+/** Campos que jamás deben venir del payload del cliente */
+const PROTECTED_DEBT_FIELDS = ['id', 'userId', 'createdAt', 'updatedAt'] as const;
+
+function stripProtectedFields(data: Record<string, unknown>) {
+  const clean: Record<string, unknown> = { ...data };
+  for (const field of PROTECTED_DEBT_FIELDS) {
+    delete clean[field];
+  }
+  return clean;
+}
+
 export const debtService = {
   async getDebts(userId: string) {
     return prisma.debt.findMany({
@@ -9,30 +20,24 @@ export const debtService = {
   },
 
   async getDebtById(userId: string, debtId: string) {
-    return prisma.debt.findUnique({
+    return prisma.debt.findFirst({
       where: { id: debtId, userId },
     });
   },
 
-  async createDebt(userId: string, data: any) {
+  async createDebt(userId: string, data: Record<string, unknown>) {
     return prisma.debt.create({
       data: {
-        ...data,
+        ...stripProtectedFields(data),
         userId,
       },
     });
   },
 
-  async updateDebt(userId: string, debtId: string, data: any) {
-    const updateData = { ...data };
-    delete updateData.id;
-    delete updateData.userId;
-    delete updateData.createdAt;
-    delete updateData.updatedAt;
-
+  async updateDebt(userId: string, debtId: string, data: Record<string, unknown>) {
     return prisma.debt.update({
       where: { id: debtId, userId },
-      data: updateData,
+      data: stripProtectedFields(data),
     });
   },
 

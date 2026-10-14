@@ -9,7 +9,23 @@ import logger from "@/lib/logger";
 /**
  * Mapea los datos del Frontend al esquema de Prisma
  */
-function mapFrontendToDb(data: any) {
+interface TransactionFormInput {
+  id?: string;
+  type: string;
+  amount: number;
+  currency: string;
+  walletId: string;
+  categoryId: string;
+  description: string;
+  note?: string | null;
+  date: string | Date;
+  isRecurring?: boolean;
+  recurringRule?: { frequency?: string; interval?: number } | null;
+  transferToWalletId?: string | null;
+  tagIds?: string[];
+}
+
+function mapFrontendToDb(data: TransactionFormInput) {
   return {
     id: data.id,
     type: data.type,
@@ -28,7 +44,7 @@ function mapFrontendToDb(data: any) {
   };
 }
 
-export async function createTransactionAction(data: any) {
+export async function createTransactionAction(data: TransactionFormInput) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -45,13 +61,13 @@ export async function createTransactionAction(data: any) {
     revalidatePath("/");
 
     return { success: true, data: tx };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "createTransactionAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
-export async function updateTransactionAction(transactionId: string, data: any) {
+export async function updateTransactionAction(transactionId: string, data: TransactionFormInput) {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -64,9 +80,9 @@ export async function updateTransactionAction(transactionId: string, data: any) 
     revalidatePath("/");
 
     return { success: true, data: tx };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "updateTransactionAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
 
@@ -81,8 +97,8 @@ export async function deleteTransactionAction(transactionId: string) {
     revalidatePath("/");
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     logger.error({ err: error }, "deleteTransactionAction failed");
-    return { success: false, error: error.message };
+    return { success: false, error: sanitizeError(error) };
   }
 }
