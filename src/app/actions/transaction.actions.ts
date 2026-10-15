@@ -22,6 +22,7 @@ interface TransactionFormInput {
   isRecurring?: boolean;
   recurringRule?: { frequency?: string; interval?: number } | null;
   transferToWalletId?: string | null;
+  transferToDebtId?: string | null;
   tagIds?: string[];
 }
 
@@ -40,6 +41,7 @@ function mapFrontendToDb(data: TransactionFormInput) {
     recurringFrequency: data.recurringRule?.frequency || null,
     recurringInterval: data.recurringRule?.interval || null,
     transferToWalletId: data.transferToWalletId || null,
+    transferToDebtId: data.transferToDebtId || null,
     tagIds: data.tagIds || [],
   };
 }

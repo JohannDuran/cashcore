@@ -24,7 +24,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function TransactionsPage() {
-  const { transactions, wallets, categories, setActiveModal, editingItem, deleteTransaction, setEditingItem } =
+  const { transactions, wallets, categories, debts, setActiveModal, editingItem, deleteTransaction, setEditingItem } =
     useCashCoreStore();
 
   const [search, setSearch] = useState("");
@@ -47,7 +47,8 @@ export default function TransactionsPage() {
     return transactions
       .filter((tx) => {
         if (typeFilter !== "all" && tx.type !== typeFilter) return false;
-        if (walletFilter !== "all" && tx.walletId !== walletFilter) return false;
+        // Filtrar por walletId o debtId
+        if (walletFilter !== "all" && tx.walletId !== walletFilter && tx.debtId !== walletFilter) return false;
         if (categoryFilter !== "all" && tx.categoryId !== categoryFilter) return false;
         if (search) {
           const q = search.toLowerCase();
@@ -76,7 +77,7 @@ export default function TransactionsPage() {
   }, [filtered]);
 
   function handleDelete() {
-    if (editingItem && "walletId" in editingItem) {
+    if (editingItem && ("walletId" in editingItem || "debtId" in editingItem)) {
       deleteTransaction(editingItem.id);
       setEditingItem(null);
       toast.success("Transacción eliminada");
@@ -150,13 +151,13 @@ export default function TransactionsPage() {
       ) : (
         <Card>
           <CardContent className="p-3 sm:p-4">
-            <TransactionList transactions={filtered} categories={categories} wallets={wallets} />
+            <TransactionList transactions={filtered} categories={categories} wallets={wallets} debts={debts} />
           </CardContent>
         </Card>
       )}
 
       {/* Delete dialog — triggered from edit flow */}
-      {editingItem && "walletId" in editingItem && (
+      {editingItem && ("walletId" in editingItem || "debtId" in editingItem) && (
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="sm" className="text-destructive hidden" id="delete-tx-trigger">

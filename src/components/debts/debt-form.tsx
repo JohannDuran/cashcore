@@ -77,6 +77,7 @@ export function DebtFormModal() {
   const [interestRate, setInterestRate] = useState("");
   const [minimumPayment, setMinimumPayment] = useState("");
   const [paymentDueDay, setPaymentDueDay] = useState("");
+  const [nextPaymentDate, setNextPaymentDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [icon, setIcon] = useState("CreditCard");
@@ -93,6 +94,7 @@ export function DebtFormModal() {
     setInterestRate("");
     setMinimumPayment("");
     setPaymentDueDay("");
+    setNextPaymentDate("");
     setStartDate(new Date().toISOString().split("T")[0]);
     setEndDate("");
     setIcon("CreditCard");
@@ -110,6 +112,7 @@ export function DebtFormModal() {
       setInterestRate(editDebt.interestRate?.toString() || "");
       setMinimumPayment(editDebt.minimumPayment?.toString() || "");
       setPaymentDueDay(editDebt.paymentDueDay?.toString() || "");
+      setNextPaymentDate(editDebt.nextPaymentDate?.toString().split("T")[0] || "");
       setStartDate(editDebt.startDate?.toString().split("T")[0] || "");
       setEndDate(editDebt.endDate?.toString().split("T")[0] || "");
       setIcon(editDebt.icon);
@@ -177,6 +180,7 @@ export function DebtFormModal() {
       interestRate: parsedInterestRate,
       minimumPayment: parsedMinimumPayment,
       paymentDueDay: parsedPaymentDueDay,
+      nextPaymentDate: nextPaymentDate || null,
       startDate,
       endDate: endDate || null,
       icon,
@@ -332,7 +336,7 @@ export function DebtFormModal() {
               />
             </div>
             <div>
-              <Label htmlFor="payment-due-day">Día de pago</Label>
+              <Label htmlFor="payment-due-day">Día de corte</Label>
               <Input
                 id="payment-due-day"
                 type="number"
@@ -345,6 +349,21 @@ export function DebtFormModal() {
                 className="mt-1"
               />
             </div>
+          </div>
+
+          {/* Fecha límite de pago */}
+          <div>
+            <Label htmlFor="next-payment-date">Próxima fecha límite de pago</Label>
+            <Input
+              id="next-payment-date"
+              type="date"
+              value={nextPaymentDate}
+              onChange={(e) => setNextPaymentDate(e.target.value)}
+              className="mt-1"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Si no se especifica, se calculará automáticamente usando el día de corte
+            </p>
           </div>
 
           {/* Dates */}

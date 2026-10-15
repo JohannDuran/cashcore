@@ -4,19 +4,27 @@ import { IconRenderer } from "@/components/shared/icon-renderer";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { Badge } from "@/components/ui/badge";
 import { formatRelativeDate } from "@/lib/utils";
-import type { Transaction, Category, Wallet } from "@/types";
+import type { Transaction, Category, Wallet, Debt } from "@/types";
 import { cn } from "@/lib/utils";
 import { ArrowRight } from "lucide-react";
+
+// Tipo unión para cuenta origen/destino (Wallet o Debt)
+type Account = Wallet | Debt;
 
 interface TransactionItemProps {
   transaction: Transaction;
   category?: Category;
-  wallet?: Wallet;
-  transferToWallet?: Wallet;
+  sourceAccount?: Account;
+  transferToAccount?: Account;
   onClick?: () => void;
 }
 
-export function TransactionItem({ transaction, category, wallet, transferToWallet, onClick }: TransactionItemProps) {
+// Helper para verificar si es una Wallet (tiene balance)
+function isWallet(account: Account): account is Wallet {
+  return 'balance' in account;
+}
+
+export function TransactionItem({ transaction, category, sourceAccount, transferToAccount, onClick }: TransactionItemProps) {
   return (
     <button
       onClick={onClick}
@@ -42,27 +50,27 @@ export function TransactionItem({ transaction, category, wallet, transferToWalle
         <p className="text-sm font-medium truncate">{transaction.description}</p>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
           <span className="text-xs text-muted-foreground">{category?.name || "Sin categoría"}</span>
-          {transaction.type === "transfer" && wallet ? (
+          {transaction.type === "transfer" && sourceAccount ? (
             <>
               <span className="text-xs text-muted-foreground">·</span>
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: wallet.color }} />
-                {wallet.name}
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sourceAccount.color }} />
+                {sourceAccount.name}
                 <ArrowRight className="w-3 h-3 text-transfer" />
-                {transferToWallet ? (
+                {transferToAccount ? (
                   <>
-                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: transferToWallet.color }} />
-                    {transferToWallet.name}
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: transferToAccount.color }} />
+                    {transferToAccount.name}
                   </>
                 ) : (
                   "?"
                 )}
               </span>
             </>
-          ) : wallet ? (
+          ) : sourceAccount ? (
             <>
               <span className="text-xs text-muted-foreground">·</span>
-              <span className="text-xs text-muted-foreground">{wallet.name}</span>
+              <span className="text-xs text-muted-foreground">{sourceAccount.name}</span>
             </>
           ) : null}
           {transaction.tags && transaction.tags.length > 0 && (

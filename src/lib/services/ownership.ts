@@ -69,8 +69,10 @@ export async function assertDebtOwnership(db: Db, userId: string, debtId: string
 }
 
 /**
- * Valida todas las referencias de una transacción (wallets, categoría y tags).
+ * Valida todas las referencias de una transacción (wallets/deudas, categoría y tags).
  * Centraliza el gate de autorización de recursos colaterales del payload del cliente.
+ * 
+ * El walletId puede ser un ID de Wallet o de Debt (para tarjetas de crédito/departamentales).
  */
 export async function assertTransactionReferences(
   db: Db,
@@ -82,10 +84,12 @@ export async function assertTransactionReferences(
     tagIds?: readonly string[];
   }
 ): Promise<void> {
-  await assertWalletOwnership(db, userId, refs.walletId);
+  // walletId puede ser Wallet o Debt
+  await assertWalletOrDebtOwnership(db, userId, refs.walletId);
 
+  // transferToWalletId también puede ser Wallet o Debt
   if (refs.transferToWalletId) {
-    await assertWalletOwnership(db, userId, refs.transferToWalletId);
+    await assertWalletOrDebtOwnership(db, userId, refs.transferToWalletId);
   }
 
   await assertCategoryAccess(db, userId, refs.categoryId);
@@ -93,4 +97,46 @@ export async function assertTransactionReferences(
   if (refs.tagIds?.length) {
     await assertTagsOwnership(db, userId, refs.tagIds);
   }
+}
+
+/**
+ * Valida que un ID pertenezca al usuario, ya sea como Wallet o como Debt.
+ * Útil para transacciones donde el origen/destino puede ser cualquiera de los dos.
+ */
+export async function assertWalletOrDebtOwnership(
+  db: Db,
+  userId: string,
+  id: string
+): Promise<'wallet' | 'debt'> {
+  // Primero intentar como wallet
+  const walletOwned = await db.wallet.count({ where: { id, userId } });
+  if (walletOwned > 0) {
+    return 'wallet';
+  }
+
+  // Si no es wallet, intentar como deuda
+  const debtOwned = await db.debt.count({ where: { id, userId } });
+  if (debtOwned > 0) {
+    return 'debt';
+  }
+
+  throw new AuthorizationError('Cuenta no encontrada o no autorizada');
+}
+
+/**
+ * Determina si un ID corresponde a una Wallet o Debt del usuario.
+ * Devuelve el tipo y los datos básicos necesarios para operaciones.
+ */
+export async function resolveAccountType(
+  db: Db,
+  userId: string,
+  id: string
+): Promise<{ type: 'wallet' | 'debt'; id: string } | null> {
+  const wallet = await db.wallet.findFirst({ where: { id, userId }, select: { id: true } });
+  if (wallet) return { type: 'wallet', id: wallet.id };
+
+  const debt = await db.debt.findFirst({ where: { id, userId }, select: { id: true } });
+  if (debt) return { type: 'debt', id: debt.id };
+
+  return null;
 }

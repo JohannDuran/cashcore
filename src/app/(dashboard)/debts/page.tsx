@@ -3,6 +3,7 @@
 import { useCashCoreStore } from "@/store";
 import { DebtCard } from "@/components/debts/debt-card";
 import { DebtFormModal } from "@/components/debts/debt-form";
+import { DebtPaymentForm } from "@/components/debts/debt-payment-form";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -24,15 +25,22 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Debt } from "@/types";
 
 export default function DebtsPage() {
-  const { debts, setActiveModal, setEditingItem, deleteDebt } = useCashCoreStore();
+  const { debts, transactions, setActiveModal, setEditingItem, deleteDebt } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Debt | null>(null);
+  const [paymentDebt, setPaymentDebt] = useState<Debt | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const activeDebts = debts.filter((d) => d.isActive && d.currentBalance > 0);
   const paidDebts = debts.filter((d) => !d.isActive || d.currentBalance <= 0);
+
+  // Filtrar transacciones de transferencia a deudas para el cálculo de pago mínimo restante
+  const debtTransactions = useMemo(() => {
+    return transactions.filter((tx) => tx.type === "transfer" && tx.transferToDebtId);
+  }, [transactions]);
 
   // Totales
   const totalDebt = activeDebts.reduce((sum, d) => sum + d.currentBalance, 0);
@@ -48,6 +56,11 @@ export default function DebtsPage() {
   function handleEdit(debt: Debt) {
     setEditingItem(debt);
     setActiveModal("debt-form");
+  }
+
+  function handlePay(debt: Debt) {
+    setPaymentDebt(debt);
+    setPaymentModalOpen(true);
   }
 
   function handleDelete() {
@@ -146,7 +159,9 @@ export default function DebtsPage() {
                   <DebtCard
                     key={debt.id}
                     debt={debt}
+                    transactions={debtTransactions}
                     onEdit={() => handleEdit(debt)}
+                    onPay={() => handlePay(debt)}
                   />
                 ))}
               </div>
@@ -166,6 +181,7 @@ export default function DebtsPage() {
                   <DebtCard
                     key={debt.id}
                     debt={debt}
+                    transactions={debtTransactions}
                     onEdit={() => handleEdit(debt)}
                   />
                 ))}
@@ -176,6 +192,16 @@ export default function DebtsPage() {
       )}
 
       <DebtFormModal />
+
+      {/* Payment Modal */}
+      <DebtPaymentForm
+        debt={paymentDebt}
+        open={paymentModalOpen}
+        onOpenChange={(open) => {
+          setPaymentModalOpen(open);
+          if (!open) setPaymentDebt(null);
+        }}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

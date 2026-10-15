@@ -49,7 +49,8 @@ export interface Category {
 
 export interface Transaction {
   id: string;
-  walletId: string;
+  walletId?: string | null;
+  debtId?: string | null;
   userId: string;
   type: TransactionType;
   amount: number;
@@ -57,6 +58,7 @@ export interface Transaction {
   categoryId: string;
   category?: Category;
   wallet?: Wallet;
+  debt?: Debt;
   description: string;
   note?: string;
   date: string;
@@ -67,7 +69,10 @@ export interface Transaction {
     endDate?: string;
   };
   tags: string[];
-  transferToWalletId?: string;
+  transferToWalletId?: string | null;
+  transferToDebtId?: string | null;
+  transferToWallet?: Wallet;
+  transferToDebt?: Debt;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -164,6 +169,7 @@ export interface Debt {
   interestRate?: number | null;
   minimumPayment?: number | null;
   paymentDueDay?: number | null;
+  nextPaymentDate?: string | null;
   startDate: string;
   endDate?: string | null;
   icon: string;
