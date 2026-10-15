@@ -26,7 +26,7 @@ import { useState } from "react";
 import type { Budget } from "@/types";
 
 export default function BudgetsPage() {
-  const { budgets, categories, wallets, transactions, setActiveModal, setEditingItem, deleteBudget } = useCashCoreStore();
+  const { budgets, categories, wallets, debts, transactions, setActiveModal, setEditingItem, deleteBudget } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Budget | null>(null);
 
   const activeBudgets = budgets.filter((b) => b.isActive);
@@ -117,6 +117,7 @@ export default function BudgetsPage() {
               budget={budget}
               categories={categories}
               wallets={wallets}
+              debts={debts}
               onEdit={() => handleEdit(budget)}
             />
           ))}
