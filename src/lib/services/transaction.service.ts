@@ -20,6 +20,7 @@ const PROTECTED_TRANSACTION_FIELDS = [
   'category',
   'wallet',
   'tags',
+  'tagIds',
   'user',
 ] as const;
 

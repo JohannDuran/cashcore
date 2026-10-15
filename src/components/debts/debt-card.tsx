@@ -2,21 +2,23 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { debtTypeLabels } from "@/lib/constants";
 import type { Debt } from "@/types";
-import { Edit } from "lucide-react";
+import { Edit, Banknote } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DebtCardProps {
   debt: Debt;
   onEdit: () => void;
+  onPay?: () => void;
   onClick?: () => void;
 }
 
-export function DebtCard({ debt, onEdit, onClick }: DebtCardProps) {
+export function DebtCard({ debt, onEdit, onPay, onClick }: DebtCardProps) {
   const paidAmount = debt.originalAmount - debt.currentBalance;
   const paidPercentage = debt.originalAmount > 0 
     ? Math.min(Math.round((paidAmount / debt.originalAmount) * 100), 100)
@@ -52,13 +54,26 @@ export function DebtCard({ debt, onEdit, onClick }: DebtCardProps) {
               </Badge>
             </div>
           </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer"
-            aria-label="Editar deuda"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            {!isFullyPaid && onPay && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => { e.stopPropagation(); onPay(); }}
+                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 px-2 text-xs gap-1.5"
+              >
+                <Banknote className="w-3.5 h-3.5" />
+                Abonar
+              </Button>
+            )}
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer"
+              aria-label="Editar deuda"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Saldo actual */}

@@ -3,6 +3,7 @@
 import { useCashCoreStore } from "@/store";
 import { DebtCard } from "@/components/debts/debt-card";
 import { DebtFormModal } from "@/components/debts/debt-form";
+import { DebtPaymentForm } from "@/components/debts/debt-payment-form";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,8 @@ import type { Debt } from "@/types";
 export default function DebtsPage() {
   const { debts, setActiveModal, setEditingItem, deleteDebt } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Debt | null>(null);
+  const [paymentDebt, setPaymentDebt] = useState<Debt | null>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const activeDebts = debts.filter((d) => d.isActive && d.currentBalance > 0);
   const paidDebts = debts.filter((d) => !d.isActive || d.currentBalance <= 0);
@@ -48,6 +51,11 @@ export default function DebtsPage() {
   function handleEdit(debt: Debt) {
     setEditingItem(debt);
     setActiveModal("debt-form");
+  }
+
+  function handlePay(debt: Debt) {
+    setPaymentDebt(debt);
+    setPaymentModalOpen(true);
   }
 
   function handleDelete() {
@@ -147,6 +155,7 @@ export default function DebtsPage() {
                     key={debt.id}
                     debt={debt}
                     onEdit={() => handleEdit(debt)}
+                    onPay={() => handlePay(debt)}
                   />
                 ))}
               </div>
@@ -176,6 +185,16 @@ export default function DebtsPage() {
       )}
 
       <DebtFormModal />
+
+      {/* Payment Modal */}
+      <DebtPaymentForm
+        debt={paymentDebt}
+        open={paymentModalOpen}
+        onOpenChange={(open) => {
+          setPaymentModalOpen(open);
+          if (!open) setPaymentDebt(null);
+        }}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
