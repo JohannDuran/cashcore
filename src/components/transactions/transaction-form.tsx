@@ -160,7 +160,7 @@ export function TransactionFormModal() {
         setFundsError(null);
       }
     } else if (sourceDebt) {
-      const creditAvailable = sourceDebt.totalAmount - sourceDebt.currentBalance;
+      const creditAvailable = sourceDebt.originalAmount - sourceDebt.currentBalance;
       if (creditAvailable <= 0) {
         setFundsError(`Sin crédito disponible. Límite alcanzado.`);
       } else if (numAmount > creditAvailable) {
@@ -414,7 +414,7 @@ export function TransactionFormModal() {
       };
     } else if (sourceDebt) {
       const newBalance = sourceDebt.currentBalance + numAmount;
-      const creditAvailable = sourceDebt.totalAmount - sourceDebt.currentBalance;
+      const creditAvailable = sourceDebt.originalAmount - sourceDebt.currentBalance;
       const exceededBy = numAmount - creditAvailable;
       return {
         name: sourceDebt.name,
@@ -422,7 +422,7 @@ export function TransactionFormModal() {
         newBalance,
         currency: sourceDebt.currency,
         isDebt: true,
-        creditLimit: sourceDebt.totalAmount,
+        creditLimit: sourceDebt.originalAmount,
         exceededBy: exceededBy > 0 ? exceededBy : 0,
       };
     }

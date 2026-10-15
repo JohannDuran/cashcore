@@ -120,7 +120,7 @@ function calculateBudgetSpent(
         budget.categoryIds.includes(t.categoryId) &&
         new Date(t.date) >= startDate &&
         new Date(t.date) <= endDate &&
-        (budget.walletIds.length === 0 || budget.walletIds.includes(t.walletId))
+        (budget.walletIds.length === 0 || (t.walletId && budget.walletIds.includes(t.walletId)))
     )
     .reduce((sum, t) => sum + t.amount, 0);
 }
