@@ -182,16 +182,28 @@ export function TransactionFormModal() {
     if (editTx) {
       setType(editTx.type);
       setAmount(editTx.amount?.toString() || "");
-      setWalletId(editTx.walletId || "");
+      // El walletId puede venir de walletId (wallet) o debtId (tarjeta de crédito)
+      const sourceId = editTx.walletId || editTx.debtId || "";
+      setWalletId(sourceId);
+      latestWalletId.current = sourceId;
       setCategoryId(editTx.categoryId || "");
-      latestWalletId.current = editTx.walletId || "";
       latestCategoryId.current = editTx.categoryId || "";
       setDescription(editTx.description || "");
       setNote(editTx.note || "");
-      setDate(editTx.date);
+      // Asegurar que la fecha tenga el formato correcto YYYY-MM-DD
+      const dateValue = editTx.date ? 
+        (typeof editTx.date === 'string' && editTx.date.includes('T') 
+          ? editTx.date.split('T')[0] 
+          : editTx.date) 
+        : new Date().toISOString().split("T")[0];
+      setDate(dateValue);
       setIsRecurring(editTx.isRecurring);
       setFrequency(editTx.recurringRule?.frequency || "monthly");
-      setTransferToWalletId(editTx.transferToWalletId || "");
+      // Para transferencias, el destino puede ser un wallet o una deuda
+      // El dropdown "Destino" usa transferToWalletId como estado, pero necesitamos cargar
+      // tanto transferToWalletId como transferToDebtId dependiendo del caso
+      const transferDestination = editTx.transferToWalletId || editTx.transferToDebtId || "";
+      setTransferToWalletId(transferDestination);
       setShowNote(!!editTx.note);
       setSelectedTagIds(editTx.tags || []);
     } else {
@@ -304,8 +316,13 @@ export function TransactionFormModal() {
     const originWallet = wallets.find((w) => w.id === editTx.walletId);
     if (editTx.type === "expense") return `Se restaurarán ${formatCurrency(editTx.amount)} al balance de ${originWallet?.name}.`;
     if (editTx.type === "income") return `Se restarán ${formatCurrency(editTx.amount)} del balance de ${originWallet?.name}.`;
+    
+    // Para transferencias, buscar el destino en wallets o deudas
     const destWallet = wallets.find((w) => w.id === editTx.transferToWalletId);
-    return `Se devolverán ${formatCurrency(editTx.amount)} a ${originWallet?.name} y se restarán de ${destWallet?.name}.`;
+    const destDebt = debts.find((d) => d.id === editTx.transferToDebtId);
+    const destName = destWallet?.name || destDebt?.name || "destino desconocido";
+    
+    return `Se devolverán ${formatCurrency(editTx.amount)} a ${originWallet?.name} y se restarán de ${destName}.`;
   };
 
   // Función para ejecutar la transacción (usada tanto por submit normal como confirmación)
@@ -314,9 +331,18 @@ export function TransactionFormModal() {
     const currentCategoryId = latestCategoryId.current || categoryId;
     const numAmount = parseFloat(amount);
 
+    // Determinar si el destino de la transferencia es un wallet o una deuda
+    const isTransferToDebt = type === "transfer" && debts.some(d => d.id === transferToWalletId);
+    const isTransferToWallet = type === "transfer" && wallets.some(w => w.id === transferToWalletId);
+
+    // Determinar la moneda - puede venir de wallet o deuda origen
+    const sourceWallet = wallets.find((w) => w.id === currentWalletId);
+    const sourceDebt = debts.find((d) => d.id === currentWalletId);
+    const currency = sourceWallet?.currency || sourceDebt?.currency || "MXN" as const;
+
     const txData = {
       type, amount: numAmount,
-      currency: wallets.find((w) => w.id === currentWalletId)?.currency || "MXN" as const,
+      currency,
       walletId: currentWalletId, userId: user?.id || "",
       categoryId: type === "transfer" ? "cat-transfer" : currentCategoryId,
       description: description || `${typeLabels[type]} - ${new Date(date).toLocaleDateString("es-MX")}`,
@@ -324,7 +350,9 @@ export function TransactionFormModal() {
       recurringRule: isRecurring ? { frequency, interval: 1 } : undefined,
       tags: selectedTagIds,
       tagIds: selectedTagIds,
-      transferToWalletId: type === "transfer" ? transferToWalletId : undefined,
+      // Enviar el campo correcto según si el destino es wallet o deuda
+      transferToWalletId: isTransferToWallet ? transferToWalletId : undefined,
+      transferToDebtId: isTransferToDebt ? transferToWalletId : undefined,
     };
 
     if (isEditing && editTx) {
