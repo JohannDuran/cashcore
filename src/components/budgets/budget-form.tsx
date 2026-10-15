@@ -30,7 +30,7 @@ import {
 import { CategoryPicker } from "@/components/shared/category-picker";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { toast } from "sonner";
-import { Trash2, Wallet as WalletIcon } from "lucide-react";
+import { Trash2, Wallet as WalletIcon, CreditCard } from "lucide-react";
 
 const periodOptions: { value: BudgetPeriod; label: string; days: number }[] = [
   { value: "weekly", label: "Semanal", days: 7 },
@@ -41,7 +41,7 @@ const periodOptions: { value: BudgetPeriod; label: string; days: number }[] = [
 ];
 
 export function BudgetFormModal() {
-  const { activeModal, setActiveModal, editingItem, setEditingItem, categories, wallets, addBudget, updateBudget, deleteBudget, user } = useCashCoreStore();
+  const { activeModal, setActiveModal, editingItem, setEditingItem, categories, wallets, debts, addBudget, updateBudget, deleteBudget, user } = useCashCoreStore();
 
   const isOpen = activeModal === "budget-form";
   const editBudget = editingItem as Budget | null;
@@ -52,6 +52,7 @@ export function BudgetFormModal() {
   const [period, setPeriod] = useState<BudgetPeriod>("monthly");
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [walletIds, setWalletIds] = useState<string[]>([]);
+  const [creditCardDebtIds, setCreditCardDebtIds] = useState<string[]>([]);
   const [rollover, setRollover] = useState(false);
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(() => getAutoEndDate(new Date().toISOString().split("T")[0], "monthly"));
@@ -60,6 +61,8 @@ export function BudgetFormModal() {
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
   const activeWallets = wallets.filter((w) => !w.isArchived);
+  // Filter debts to only show credit cards
+  const creditCardDebts = debts.filter((d) => d.type === "credit_card" && d.isActive);
 
   function getAutoEndDate(start: string | Date, prd: BudgetPeriod): string {
     const d = start instanceof Date ? new Date(start) : new Date(start + "T00:00:00");
@@ -87,7 +90,12 @@ export function BudgetFormModal() {
       setAmount(editBudget.amount.toString());
       setPeriod(editBudget.period);
       setCategoryIds(editBudget.categoryIds || []);
-      setWalletIds(editBudget.walletIds || []);
+      // Separate wallet IDs and credit card debt IDs
+      const allIds = editBudget.walletIds || [];
+      const walletOnlyIds = allIds.filter(id => activeWallets.some(w => w.id === id));
+      const debtOnlyIds = allIds.filter(id => creditCardDebts.some(d => d.id === id));
+      setWalletIds(walletOnlyIds);
+      setCreditCardDebtIds(debtOnlyIds);
       setRollover(editBudget.rollover);
       const start = toDateString(editBudget.startDate);
       setStartDate(start);
@@ -107,6 +115,7 @@ export function BudgetFormModal() {
     setPeriod("monthly");
     setCategoryIds([]);
     setWalletIds([]);
+    setCreditCardDebtIds([]);
     setRollover(false);
     setStartDate(new Date().toISOString().split("T")[0]);
     setEndDate(getAutoEndDate(new Date().toISOString().split("T")[0], "monthly"));
@@ -141,6 +150,12 @@ export function BudgetFormModal() {
     );
   }
 
+  function toggleCreditCardDebt(id: string) {
+    setCreditCardDebtIds((prev) =>
+      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id]
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -157,6 +172,9 @@ export function BudgetFormModal() {
     const firstCat = categories.find((c) => c.id === categoryIds[0]);
     const optimisticId = isEditing && editBudget ? editBudget.id : generateId();
 
+    // Combine wallet IDs and credit card debt IDs
+    const combinedWalletIds = [...walletIds, ...creditCardDebtIds];
+
     const budgetData = {
       id: optimisticId,
       userId: user?.id || "",
@@ -164,7 +182,7 @@ export function BudgetFormModal() {
       amount: numAmount,
       period,
       categoryIds,
-      walletIds,
+      walletIds: combinedWalletIds,
       startDate,
       endDate,
       rollover,
@@ -332,9 +350,9 @@ export function BudgetFormModal() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {walletIds.length === 0
+              {walletIds.length === 0 && creditCardDebtIds.length === 0
                 ? "Sin filtro de wallet — aplica a todas"
-                : `${walletIds.length} wallet${walletIds.length === 1 ? "" : "s"} seleccionada${walletIds.length === 1 ? "" : "s"}`}
+                : `${walletIds.length + creditCardDebtIds.length} cuenta${(walletIds.length + creditCardDebtIds.length) === 1 ? "" : "s"} seleccionada${(walletIds.length + creditCardDebtIds.length) === 1 ? "" : "s"}`}
             </p>
             <div className="flex flex-wrap gap-2 mt-2">
               {activeWallets.map((w) => {
@@ -358,6 +376,57 @@ export function BudgetFormModal() {
               })}
             </div>
           </div>
+
+          {/* Credit Card Debts Section */}
+          {creditCardDebts.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between">
+                <Label>Tarjetas de Crédito</Label>
+                <div className="flex items-center gap-2">
+                  {creditCardDebtIds.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCreditCardDebtIds([])}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Ninguna
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setCreditCardDebtIds(creditCardDebts.map((d) => d.id))}
+                    className="text-xs text-primary hover:text-primary/80 transition-colors"
+                  >
+                    Todas
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Incluye gastos de tarjetas de crédito en este presupuesto
+              </p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {creditCardDebts.map((debt) => {
+                  const selected = creditCardDebtIds.includes(debt.id);
+                  return (
+                    <button
+                      key={debt.id}
+                      type="button"
+                      onClick={() => toggleCreditCardDebt(debt.id)}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 text-xs font-medium transition-all cursor-pointer",
+                        selected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-transparent bg-muted text-muted-foreground hover:border-border"
+                      )}
+                    >
+                      <CreditCard className="w-3 h-3" />
+                      {debt.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div>

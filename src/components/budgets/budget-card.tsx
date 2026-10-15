@@ -6,18 +6,19 @@ import { Progress } from "@/components/ui/progress";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { formatCurrency, getBudgetBarColor } from "@/lib/utils";
 import { budgetPeriodLabels } from "@/lib/constants";
-import type { Budget, Category, Wallet } from "@/types";
-import { Edit, AlertTriangle, Wallet as WalletIcon } from "lucide-react";
+import type { Budget, Category, Wallet, Debt } from "@/types";
+import { Edit, AlertTriangle, Wallet as WalletIcon, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BudgetCardProps {
   budget: Budget;
   categories: Category[];
   wallets: Wallet[];
+  debts: Debt[];
   onEdit: () => void;
 }
 
-export function BudgetCard({ budget, categories, wallets, onEdit }: BudgetCardProps) {
+export function BudgetCard({ budget, categories, wallets, debts, onEdit }: BudgetCardProps) {
   const percentage = budget.amount > 0 ? Math.round((budget.spent / budget.amount) * 100) : 0;
   const remaining = budget.amount - budget.spent;
   const isExceeded = percentage > 100;
@@ -26,9 +27,19 @@ export function BudgetCard({ budget, categories, wallets, onEdit }: BudgetCardPr
   const budgetCategories = budget.categoryIds
     .map((id) => categories.find((c) => c.id === id))
     .filter(Boolean) as Category[];
-  const budgetWallets = budget.walletIds
+  
+  // Separate wallet IDs from credit card debt IDs
+  const walletIdSet = new Set(wallets.map((w) => w.id));
+  const budgetWalletIds = budget.walletIds.filter((id) => walletIdSet.has(id));
+  const budgetCreditCardIds = budget.walletIds.filter((id) => !walletIdSet.has(id));
+  
+  const budgetWallets = budgetWalletIds
     .map((id) => wallets.find((w) => w.id === id))
     .filter(Boolean) as Wallet[];
+  
+  const budgetCreditCards = budgetCreditCardIds
+    .map((id) => debts.find((d) => d.id === id && d.type === "credit_card"))
+    .filter(Boolean) as Debt[];
 
   const primaryCat = budgetCategories[0];
 
@@ -118,6 +129,18 @@ export function BudgetCard({ budget, categories, wallets, onEdit }: BudgetCardPr
                 <span key={w.id} className="text-[10px] text-muted-foreground">
                   {w.name}
                   {budgetWallets.indexOf(w) < budgetWallets.length - 1 ? "," : ""}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {budgetCreditCards.length > 0 && (
+            <div className="flex items-center gap-1 flex-wrap pt-0.5">
+              <CreditCard className="w-3 h-3 text-muted-foreground shrink-0" />
+              {budgetCreditCards.map((cc) => (
+                <span key={cc.id} className="text-[10px] text-muted-foreground">
+                  {cc.name}
+                  {budgetCreditCards.indexOf(cc) < budgetCreditCards.length - 1 ? "," : ""}
                 </span>
               ))}
             </div>
