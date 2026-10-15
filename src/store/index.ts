@@ -193,6 +193,14 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         return w;
       });
 
+      // For transfers to debts, decrement debt balance (payment reduces debt)
+      const debts = state.debts.map((d) => {
+        if (newTx.type === "transfer" && d.id === newTx.transferToDebtId) {
+          return { ...d, currentBalance: d.currentBalance - newTx.amount };
+        }
+        return d;
+      });
+
       const transactions = [newTx, ...state.transactions];
 
       // Recalculate budgets
@@ -201,7 +209,7 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         spent: calculateBudgetSpent(b, transactions),
       }));
 
-      return { transactions, wallets, budgets };
+      return { transactions, wallets, debts, budgets };
     }),
 
   updateTransaction: (id, data) =>
@@ -225,9 +233,17 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         return w;
       });
 
+      // Revert old transaction effect on debt (for transfers to debts)
+      let debts = state.debts.map((d) => {
+        if (oldTx.type === "transfer" && d.id === oldTx.transferToDebtId) {
+          return { ...d, currentBalance: d.currentBalance + oldTx.amount };
+        }
+        return d;
+      });
+
       const updatedTx = { ...oldTx, ...data, updatedAt: new Date() };
 
-      // Apply new transaction effect
+      // Apply new transaction effect on wallets
       wallets = wallets.map((w) => {
         if (w.id === updatedTx.walletId) {
           if (updatedTx.type === "expense" || updatedTx.type === "transfer") {
@@ -243,6 +259,14 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         return w;
       });
 
+      // Apply new transaction effect on debts (for transfers to debts)
+      debts = debts.map((d) => {
+        if (updatedTx.type === "transfer" && d.id === updatedTx.transferToDebtId) {
+          return { ...d, currentBalance: d.currentBalance - updatedTx.amount };
+        }
+        return d;
+      });
+
       const transactions = state.transactions.map((t) =>
         t.id === id ? updatedTx : t
       );
@@ -252,7 +276,7 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         spent: calculateBudgetSpent(b, transactions),
       }));
 
-      return { transactions, wallets, budgets };
+      return { transactions, wallets, debts, budgets };
     }),
 
   deleteTransaction: (id) =>
@@ -276,6 +300,14 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         return w;
       });
 
+      // Revert debt balance for transfers to debts
+      const debts = state.debts.map((d) => {
+        if (tx.type === "transfer" && d.id === tx.transferToDebtId) {
+          return { ...d, currentBalance: d.currentBalance + tx.amount };
+        }
+        return d;
+      });
+
       const transactions = state.transactions.filter((t) => t.id !== id);
 
       const budgets = state.budgets.map((b) => ({
@@ -283,7 +315,7 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         spent: calculateBudgetSpent(b, transactions),
       }));
 
-      return { transactions, wallets, budgets };
+      return { transactions, wallets, debts, budgets };
     }),
 
   // ── Wallets ──

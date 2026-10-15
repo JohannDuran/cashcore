@@ -62,7 +62,9 @@ export const transactionService = {
     return prisma.$transaction(async (tx) => {
       // El frontend envía walletId que puede ser un ID de Wallet o Debt
       const sourceId = clean.walletId as string | null;
-      const transferToId = clean.transferToWalletId as string | null | undefined;
+      // transferToWalletId puede contener un wallet o debt ID, o transferToDebtId puede tener el debt ID directamente
+      const transferToId = (clean.transferToDebtId as string | null | undefined) 
+        ?? (clean.transferToWalletId as string | null | undefined);
       
       await assertTransactionReferences(tx, userId, {
         walletId: sourceId!,
@@ -129,9 +131,11 @@ export const transactionService = {
 
       // El frontend envía walletId que puede ser un ID de Wallet o Debt
       const sourceId = (clean.walletId as string | null | undefined) ?? oldTransaction.walletId ?? oldTransaction.debtId;
-      const transferToId = clean.transferToWalletId !== undefined
-        ? (clean.transferToWalletId as string | null)
-        : oldTransaction.transferToWalletId ?? oldTransaction.transferToDebtId;
+      // transferToWalletId puede contener un wallet o debt ID, o transferToDebtId puede tener el debt ID directamente
+      const transferToId = (clean.transferToDebtId as string | null | undefined) 
+        ?? (clean.transferToWalletId !== undefined
+          ? (clean.transferToWalletId as string | null)
+          : oldTransaction.transferToWalletId ?? oldTransaction.transferToDebtId);
 
       await assertTransactionReferences(tx, userId, {
         walletId: sourceId!,

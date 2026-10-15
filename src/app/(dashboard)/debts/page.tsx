@@ -25,17 +25,22 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Debt } from "@/types";
 
 export default function DebtsPage() {
-  const { debts, setActiveModal, setEditingItem, deleteDebt } = useCashCoreStore();
+  const { debts, transactions, setActiveModal, setEditingItem, deleteDebt } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Debt | null>(null);
   const [paymentDebt, setPaymentDebt] = useState<Debt | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   const activeDebts = debts.filter((d) => d.isActive && d.currentBalance > 0);
   const paidDebts = debts.filter((d) => !d.isActive || d.currentBalance <= 0);
+
+  // Filtrar transacciones de transferencia a deudas para el cálculo de pago mínimo restante
+  const debtTransactions = useMemo(() => {
+    return transactions.filter((tx) => tx.type === "transfer" && tx.transferToDebtId);
+  }, [transactions]);
 
   // Totales
   const totalDebt = activeDebts.reduce((sum, d) => sum + d.currentBalance, 0);
@@ -154,6 +159,7 @@ export default function DebtsPage() {
                   <DebtCard
                     key={debt.id}
                     debt={debt}
+                    transactions={debtTransactions}
                     onEdit={() => handleEdit(debt)}
                     onPay={() => handlePay(debt)}
                   />
@@ -175,6 +181,7 @@ export default function DebtsPage() {
                   <DebtCard
                     key={debt.id}
                     debt={debt}
+                    transactions={debtTransactions}
                     onEdit={() => handleEdit(debt)}
                   />
                 ))}

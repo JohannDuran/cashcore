@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import { useCashCoreStore } from "@/store";
 import { cn, generateId, formatCurrency } from "@/lib/utils";
 import { createTransactionAction } from "@/app/actions/transaction.actions";
-import { updateDebtAction } from "@/app/actions/debt.actions";
 import type { Debt, Currency } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,10 +89,8 @@ interface DebtPaymentFormProps {
 export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormProps) {
   const {
     wallets,
-    categories,
     user,
     addTransaction,
-    updateDebt,
   } = useCashCoreStore();
 
   // ── Form state ──
@@ -144,32 +141,23 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
 
     try {
       const selectedWallet = wallets.find(w => w.id === walletId);
-      
-      // Find or use a default category for debt payments
-      const debtPaymentCategory = categories.find(
-        c => c.type === "expense" && (c.name.toLowerCase().includes("deuda") || c.name.toLowerCase().includes("pago"))
-      ) || categories.find(c => c.type === "expense");
-
-      if (!debtPaymentCategory) {
-        toast.error("No se encontró una categoría para registrar el pago");
-        setIsSubmitting(false);
-        return;
-      }
 
       // Verificar si el pago está a tiempo
       const paymentDate = new Date(date);
       const dueDate = getNextPaymentDate(debt);
       const paymentOnTime = isPaymentOnTime(paymentDate, dueDate);
 
-      // Create transaction data
+      // Create transaction data as TRANSFER (wallet -> debt)
+      // Un pago de deuda es una transferencia de dinero desde un wallet hacia la deuda
       const txData = {
         id: generateId(),
-        type: "expense" as const,
+        type: "transfer" as const,
         amount: numAmount,
         currency: (selectedWallet?.currency || debt.currency) as Currency,
         walletId,
         userId: user?.id || "",
-        categoryId: debtPaymentCategory.id,
+        categoryId: "cat-transfer", // Categoría especial para transferencias
+        transferToDebtId: debt.id, // Destino: la deuda
         description: `Pago de deuda: ${debt.name}`,
         note: note || undefined,
         date,
@@ -179,22 +167,17 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
       };
 
       // Update local state optimistically
+      // addTransaction ahora también actualiza el balance de la deuda
       addTransaction(txData);
       
-      // Calcular nuevo balance - PERMITE SALDO NEGATIVO (saldo a favor)
+      // Calcular nuevo balance para mostrar en mensajes
       const newBalance = debt.currentBalance - numAmount;
-      updateDebt(debt.id, { currentBalance: newBalance });
 
-      // Persist to database
-      const [txRes, debtRes] = await Promise.all([
-        createTransactionAction(txData),
-        updateDebtAction(debt.id, { currentBalance: newBalance }),
-      ]);
+      // Persist to database - el servicio de transacciones actualiza la deuda automáticamente
+      const txRes = await createTransactionAction(txData);
 
       if (!txRes.success) {
         toast.error("Error al registrar la transacción: " + txRes.error);
-      } else if (!debtRes.success) {
-        toast.error("Error al actualizar la deuda: " + debtRes.error);
       } else {
         const hasSaldoAFavor = newBalance < 0;
         const isFullyPaid = newBalance <= 0 && newBalance >= 0;

@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { debtTypeLabels } from "@/lib/constants";
-import type { Debt } from "@/types";
+import type { Debt, Transaction } from "@/types";
 import { Edit, Banknote, Calendar, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +42,66 @@ function getNextPaymentDate(debt: Debt): Date | null {
 }
 
 /**
+ * Calcula el inicio del período de facturación actual
+ * Es el día de pago del mes anterior a la próxima fecha límite
+ */
+function getBillingPeriodStart(debt: Debt, nextPaymentDate: Date | null): Date | null {
+  if (!nextPaymentDate) return null;
+  
+  // El inicio del período es el día de pago del mes anterior
+  const periodStart = new Date(nextPaymentDate);
+  periodStart.setMonth(periodStart.getMonth() - 1);
+  
+  // Agregar un día después de la fecha límite anterior (el período empieza después del pago anterior)
+  periodStart.setDate(periodStart.getDate() + 1);
+  
+  // Si la deuda empezó después de esta fecha, usar la fecha de inicio de la deuda
+  const debtStartDate = new Date(debt.startDate);
+  if (debtStartDate > periodStart) {
+    return debtStartDate;
+  }
+  
+  return periodStart;
+}
+
+/**
+ * Calcula los pagos realizados en el período de facturación actual
+ * Solo cuenta transacciones tipo "transfer" con transferToDebtId === debt.id
+ */
+function calculatePeriodPayments(
+  debt: Debt,
+  transactions: Transaction[],
+  periodStart: Date | null,
+  periodEnd: Date | null
+): number {
+  if (!periodStart || !periodEnd) return 0;
+  
+  // Normalizar fechas para comparación (solo fecha, sin hora)
+  const startDate = new Date(periodStart);
+  startDate.setHours(0, 0, 0, 0);
+  
+  const endDate = new Date(periodEnd);
+  endDate.setHours(23, 59, 59, 999);
+  
+  // Filtrar transacciones que son pagos a esta deuda en el período actual
+  const periodPayments = transactions.filter((tx) => {
+    // Debe ser una transferencia a esta deuda
+    if (tx.type !== "transfer" || tx.transferToDebtId !== debt.id) {
+      return false;
+    }
+    
+    // Verificar que esté dentro del período de facturación
+    const txDate = new Date(tx.date);
+    txDate.setHours(0, 0, 0, 0);
+    
+    return txDate >= startDate && txDate <= endDate;
+  });
+  
+  // Sumar todos los pagos del período
+  return periodPayments.reduce((sum, tx) => sum + tx.amount, 0);
+}
+
+/**
  * Formatea la fecha de pago mostrando día y mes
  */
 function formatPaymentDueDate(date: Date): string {
@@ -72,12 +132,13 @@ function getPaymentStatus(nextPaymentDate: Date | null): "ok" | "warning" | "ove
 
 interface DebtCardProps {
   debt: Debt;
+  transactions?: Transaction[];
   onEdit: () => void;
   onPay?: () => void;
   onClick?: () => void;
 }
 
-export function DebtCard({ debt, onEdit, onPay, onClick }: DebtCardProps) {
+export function DebtCard({ debt, transactions = [], onEdit, onPay, onClick }: DebtCardProps) {
   const paidAmount = debt.originalAmount - debt.currentBalance;
   const paidPercentage = debt.originalAmount > 0 
     ? Math.min(Math.round((paidAmount / debt.originalAmount) * 100), 100)
@@ -89,6 +150,14 @@ export function DebtCard({ debt, onEdit, onPay, onClick }: DebtCardProps) {
   // Calcular fecha de pago y estado
   const nextPaymentDate = getNextPaymentDate(debt);
   const paymentStatus = getPaymentStatus(nextPaymentDate);
+  
+  // Calcular pago mínimo restante del período actual
+  const billingPeriodStart = getBillingPeriodStart(debt, nextPaymentDate);
+  const periodPayments = calculatePeriodPayments(debt, transactions, billingPeriodStart, nextPaymentDate);
+  const remainingMinimumPayment = debt.minimumPayment 
+    ? Math.max(0, debt.minimumPayment - periodPayments)
+    : null;
+  const minimumPaymentCompleted = remainingMinimumPayment !== null && remainingMinimumPayment === 0;
 
   return (
     <Card
@@ -191,13 +260,31 @@ export function DebtCard({ debt, onEdit, onPay, onClick }: DebtCardProps) {
             <div className="grid grid-cols-2 gap-2">
               {debt.minimumPayment && (
                 <div>
-                  <p className="text-[10px] text-muted-foreground">Pago mínimo</p>
-                  <CurrencyDisplay
-                    amount={debt.minimumPayment}
-                    currency={debt.currency}
-                    size="sm"
-                    className="font-medium"
-                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    {minimumPaymentCompleted ? "Pago mínimo completado ✓" : "Pago mínimo restante"}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {minimumPaymentCompleted ? (
+                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                    ) : remainingMinimumPayment !== null && remainingMinimumPayment < debt.minimumPayment ? (
+                      <span className="text-[9px] text-amber-600 font-medium">Parcial</span>
+                    ) : null}
+                    <CurrencyDisplay
+                      amount={remainingMinimumPayment ?? debt.minimumPayment}
+                      currency={debt.currency}
+                      size="sm"
+                      className={cn(
+                        "font-medium",
+                        minimumPaymentCompleted && "text-emerald-600"
+                      )}
+                    />
+                  </div>
+                  {periodPayments > 0 && !minimumPaymentCompleted && (
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      Abonado: <CurrencyDisplay amount={periodPayments} currency={debt.currency} size="sm" type="income" /> de{" "}
+                      <CurrencyDisplay amount={debt.minimumPayment} currency={debt.currency} size="sm" />
+                    </p>
+                  )}
                 </div>
               )}
               {/* Fecha de pago con día y mes */}
