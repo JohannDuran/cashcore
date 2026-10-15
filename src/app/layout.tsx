@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { ServiceWorkerRegistrar } from "@/components/shared/service-worker-registrar";
+import { DisableNumberScroll } from "@/components/shared/disable-number-scroll";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -58,6 +59,7 @@ export default function RootLayout({
       >
         <Providers>
           <ServiceWorkerRegistrar />
+          <DisableNumberScroll />
           {children}
         </Providers>
       </body>
