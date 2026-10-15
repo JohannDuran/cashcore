@@ -154,9 +154,9 @@ export default function ReportsPage() {
   const walletSpending = useMemo(() => {
     const map = new Map<string, number>();
     filtered
-      .filter((t) => t.type === "expense")
+      .filter((t) => t.type === "expense" && t.walletId)
       .forEach((t) => {
-        map.set(t.walletId, (map.get(t.walletId) || 0) + t.amount);
+        map.set(t.walletId!, (map.get(t.walletId!) || 0) + t.amount);
       });
     return Array.from(map.entries())
       .map(([wId, amount]) => {
