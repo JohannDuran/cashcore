@@ -7,10 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "clean": "rimraf .next node_modules package-lock.json",
+    "clean": "rm -rf .next node_modules package-lock.json pnpm-lock.yaml",
     "postinstall": "prisma generate",
     "db:push": "npx prisma generate && npx prisma db push",
-    "restart": "npm run clean && npm install && npm run dev"
+    "restart": "pnpm run clean && pnpm install && pnpm run dev"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"

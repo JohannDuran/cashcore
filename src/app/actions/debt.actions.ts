@@ -18,10 +18,10 @@ function mapFrontendToDb(frontendDebt: Partial<Debt>) {
   if (dbData.endDate && typeof dbData.endDate === 'string') {
     dbData.endDate = new Date(dbData.endDate);
   }
-  if (dbData.createdAt) {
+  if (dbData.createdAt && (typeof dbData.createdAt === 'string' || typeof dbData.createdAt === 'number' || dbData.createdAt instanceof Date)) {
     dbData.createdAt = new Date(dbData.createdAt);
   }
-  if (dbData.updatedAt) {
+  if (dbData.updatedAt && (typeof dbData.updatedAt === 'string' || typeof dbData.updatedAt === 'number' || dbData.updatedAt instanceof Date)) {
     dbData.updatedAt = new Date(dbData.updatedAt);
   }
 

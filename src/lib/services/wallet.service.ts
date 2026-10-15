@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import type { Prisma } from '@prisma/client';
 
 export const walletService = {
   async getWallets(userId: string) {
@@ -19,7 +20,7 @@ export const walletService = {
       data: {
         ...data,
         userId,
-      },
+      } as Prisma.WalletUncheckedCreateInput,
     });
   },
 
@@ -32,7 +33,7 @@ export const walletService = {
 
     return prisma.wallet.update({
       where: { id: walletId, userId },
-      data: updateData,
+      data: updateData as Prisma.WalletUncheckedUpdateInput,
     });
   },
 

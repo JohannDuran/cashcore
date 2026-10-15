@@ -17,6 +17,7 @@ export function StoreHydrator({ data }: { data: any }) {
         tags: data.tags,
         goals: data.goals,
         subscriptions: data.subscriptions,
+        debts: data.debts,
       });
       useCashCoreStore.getState().recalculateBudgets();
       initialized.current = true;

@@ -12,14 +12,14 @@ import logger from "@/lib/logger";
 function mapFrontendToDb(frontendSub: Partial<Subscription>) {
   const dbData: Record<string, unknown> = { ...frontendSub };
 
-  if (dbData.nextBillDate) {
-    dbData.nextBillDate = new Date(dbData.nextBillDate as string);
+  if (dbData.nextBillDate && (typeof dbData.nextBillDate === 'string' || typeof dbData.nextBillDate === 'number' || dbData.nextBillDate instanceof Date)) {
+    dbData.nextBillDate = new Date(dbData.nextBillDate);
   }
-  if (dbData.createdAt) {
-    dbData.createdAt = new Date(dbData.createdAt as string);
+  if (dbData.createdAt && (typeof dbData.createdAt === 'string' || typeof dbData.createdAt === 'number' || dbData.createdAt instanceof Date)) {
+    dbData.createdAt = new Date(dbData.createdAt);
   }
-  if (dbData.updatedAt) {
-    dbData.updatedAt = new Date(dbData.updatedAt as string);
+  if (dbData.updatedAt && (typeof dbData.updatedAt === 'string' || typeof dbData.updatedAt === 'number' || dbData.updatedAt instanceof Date)) {
+    dbData.updatedAt = new Date(dbData.updatedAt);
   }
 
   // El userId real se deriva del token en cada action; se elimina del payload
