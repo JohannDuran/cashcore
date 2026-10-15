@@ -80,6 +80,7 @@ model Category {
 model Transaction {
   id                 String    @id @default(uuid())
   walletId           String?
+  debtId             String?   // Para transacciones desde tarjetas de crédito/deudas
   userId             String
   type               String // 'income' | 'expense' | 'transfer'
   amount             Float
@@ -94,12 +95,16 @@ model Transaction {
   recurringInterval  Int?
   recurringEndDate   DateTime? @db.Date
   transferToWalletId String?
+  transferToDebtId   String?   // Para transferencias hacia deudas (pagos)
+  debtEffect         String?   // 'charge' | 'payment' - efecto sobre la deuda
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   wallet           Wallet?  @relation("WalletTransactions", fields: [walletId], references: [id], onDelete: Cascade)
+  debt             Debt?    @relation("DebtTransactions", fields: [debtId], references: [id], onDelete: Cascade)
   transferToWallet Wallet?  @relation("TransferToWallet", fields: [transferToWalletId], references: [id])
+  transferToDebt   Debt?    @relation("TransferToDebt", fields: [transferToDebtId], references: [id])
   category         Category @relation(fields: [categoryId], references: [id])
   tags             Tag[]    @relation("TransactionTags")
 }
@@ -116,20 +121,21 @@ model Tag {
 }
 
 model Budget {
-  id          String    @id @default(uuid())
-  userId      String
-  walletIds   String[]
-  name        String
-  amount      Float
-  spent       Float     @default(0)
-  period      String // 'weekly' | 'biweekly' | 'monthly' | 'yearly'
-  categoryIds String[]
-  startDate   DateTime  @db.Date
-  endDate     DateTime? @db.Date
-  rollover    Boolean   @default(false)
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(uuid())
+  userId          String
+  walletIds       String[]
+  name            String
+  amount          Float
+  spent           Float     @default(0)
+  period          String // 'weekly' | 'biweekly' | 'monthly' | 'yearly'
+  categoryIds     String[]
+  startDate       DateTime  @db.Date
+  endDate         DateTime? @db.Date
+  rollover        Boolean   @default(false)
+  trackHistorical Boolean   @default(false)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -168,6 +174,7 @@ model Subscription {
   isActive       Boolean  @default(true)
   isDomiciliado  Boolean  @default(false)
   walletId       String?
+  debtId         String?  // Para suscripciones pagadas con tarjeta de crédito/deuda
   notes          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -175,29 +182,36 @@ model Subscription {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])
   wallet   Wallet?  @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  debt     Debt?    @relation(fields: [debtId], references: [id], onDelete: SetNull)
 }
 
 model Debt {
-  id             String    @id @default(uuid())
-  userId         String
-  name           String
-  type           String // 'personal_credit' | 'credit_card' | 'personal_loan' | 'department_store' | 'mortgage' | 'car_loan' | 'other'
-  currency       String
-  originalAmount Float
-  currentBalance Float
-  interestRate   Float?
-  minimumPayment Float?
-  paymentDueDay  Int?
-  startDate      DateTime  @db.Date
-  endDate        DateTime? @db.Date
-  icon           String
-  color          String
-  isActive       Boolean   @default(true)
-  notes          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id              String    @id @default(uuid())
+  userId          String
+  name            String
+  type            String // 'personal_credit' | 'credit_card' | 'personal_loan' | 'department_store' | 'mortgage' | 'car_loan' | 'other'
+  currency        String
+  originalAmount  Float
+  currentBalance  Float
+  interestRate    Float?
+  minimumPayment  Float?
+  paymentDueDay   Int?
+  nextPaymentDate DateTime? @db.Date
+  startDate       DateTime  @db.Date
+  endDate         DateTime? @db.Date
+  icon            String
+  color           String
+  isActive        Boolean   @default(true)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Relaciones inversas para transacciones
+  transactions  Transaction[]  @relation("DebtTransactions")
+  transfersIn   Transaction[]  @relation("TransferToDebt")
+  subscriptions Subscription[]
 }
 
 model Currency {

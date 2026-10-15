@@ -3,16 +3,17 @@
 import { useMemo } from "react";
 import { TransactionItem } from "@/components/transactions/transaction-item";
 import { formatDateGroup } from "@/lib/utils";
-import type { Transaction, Category, Wallet } from "@/types";
+import type { Transaction, Category, Wallet, Debt } from "@/types";
 import { useCashCoreStore } from "@/store";
 
 interface TransactionListProps {
   transactions: Transaction[];
   categories: Category[];
   wallets: Wallet[];
+  debts: Debt[];
 }
 
-export function TransactionList({ transactions, categories, wallets }: TransactionListProps) {
+export function TransactionList({ transactions, categories, wallets, debts }: TransactionListProps) {
   const { setActiveModal, setEditingItem } = useCashCoreStore();
 
   const grouped = useMemo(() => {
@@ -53,6 +54,35 @@ export function TransactionList({ transactions, categories, wallets }: Transacti
     setActiveModal("transaction-form");
   }
 
+  // Función helper para obtener la cuenta origen (wallet o debt)
+  function getSourceAccount(tx: Transaction) {
+    if (tx.walletId) {
+      return wallets.find((w) => w.id === tx.walletId);
+    }
+    if (tx.debtId) {
+      return debts.find((d) => d.id === tx.debtId);
+    }
+    return undefined;
+  }
+
+  // Función helper para obtener la cuenta destino de transferencia (wallet o debt)
+  function getTransferDestination(tx: Transaction) {
+    if (tx.type !== "transfer") return undefined;
+    
+    // Primero verificamos si viene la relación ya incluida desde el servidor
+    if (tx.transferToWallet) return tx.transferToWallet;
+    if (tx.transferToDebt) return tx.transferToDebt;
+    
+    // Si no, buscamos por ID
+    if (tx.transferToWalletId) {
+      return wallets.find((w) => w.id === tx.transferToWalletId);
+    }
+    if (tx.transferToDebtId) {
+      return debts.find((d) => d.id === tx.transferToDebtId);
+    }
+    return undefined;
+  }
+
   if (transactions.length === 0) {
     return null;
   }
@@ -70,8 +100,8 @@ export function TransactionList({ transactions, categories, wallets }: Transacti
                 key={tx.id}
                 transaction={tx}
                 category={categories.find((c) => c.id === tx.categoryId)}
-                wallet={wallets.find((w) => w.id === tx.walletId)}
-                transferToWallet={tx.type === "transfer" ? wallets.find((w) => w.id === tx.transferToWalletId) : undefined}
+                sourceAccount={getSourceAccount(tx)}
+                transferToAccount={getTransferDestination(tx)}
                 onClick={() => handleEdit(tx)}
               />
             ))}

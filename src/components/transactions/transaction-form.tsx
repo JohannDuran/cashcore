@@ -79,9 +79,9 @@ const categoryIcons = [
 export function TransactionFormModal() {
   const {
     activeModal, setActiveModal, editingItem, setEditingItem,
-    wallets, categories, tags,
+    wallets, categories, tags, debts,
     addTransaction, updateTransaction, deleteTransaction,
-    addWallet, updateWallet, addCategory, updateCategory, addTag,
+    addWallet, updateWallet, addCategory, updateCategory, addTag, updateDebt,
     user,
   } = useCashCoreStore();
 
@@ -102,6 +102,7 @@ export function TransactionFormModal() {
   const [transferToWalletId, setTransferToWalletId] = useState("");
   const [showNote, setShowNote] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showInsufficientFundsConfirm, setShowInsufficientFundsConfirm] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   // Track latest IDs synchronously to avoid stale closure on submit
@@ -132,6 +133,50 @@ export function TransactionFormModal() {
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#3B82F6");
   const [creatingTag, setCreatingTag] = useState(false);
+
+  // ── Validación de fondos en tiempo real ──
+  const [fundsError, setFundsError] = useState<string | null>(null);
+
+  // Función para validar fondos disponibles
+  const validateFunds = React.useCallback((currentAmount: string, currentWalletId: string, currentType: TransactionType) => {
+    if (currentType === "income") {
+      setFundsError(null);
+      return;
+    }
+    
+    const numAmount = parseFloat(currentAmount);
+    if (!numAmount || numAmount <= 0 || !currentWalletId) {
+      setFundsError(null);
+      return;
+    }
+
+    const sourceWallet = wallets.find((w) => w.id === currentWalletId);
+    const sourceDebt = debts.find((d) => d.id === currentWalletId);
+
+    if (sourceWallet) {
+      if (sourceWallet.balance < numAmount) {
+        setFundsError(`Fondos insuficientes. Disponible: ${formatCurrency(sourceWallet.balance, sourceWallet.currency)}`);
+      } else {
+        setFundsError(null);
+      }
+    } else if (sourceDebt) {
+      const creditAvailable = sourceDebt.totalAmount - sourceDebt.currentBalance;
+      if (creditAvailable <= 0) {
+        setFundsError(`Sin crédito disponible. Límite alcanzado.`);
+      } else if (numAmount > creditAvailable) {
+        setFundsError(`Crédito insuficiente. Disponible: ${formatCurrency(creditAvailable, sourceDebt.currency)}`);
+      } else {
+        setFundsError(null);
+      }
+    } else {
+      setFundsError(null);
+    }
+  }, [wallets, debts]);
+
+  // Validar cuando cambia el monto, wallet o tipo
+  useEffect(() => {
+    validateFunds(amount, walletId, type);
+  }, [amount, walletId, type, validateFunds]);
 
   useEffect(() => {
     if (editTx) {
@@ -170,7 +215,7 @@ export function TransactionFormModal() {
 
   function handleClose() {
     setActiveModal(null); setEditingItem(null);
-    setShowDeleteConfirm(false); resetForm();
+    setShowDeleteConfirm(false); setShowInsufficientFundsConfirm(false); resetForm();
   }
 
   function handleDelete() {
@@ -263,18 +308,11 @@ export function TransactionFormModal() {
     return `Se devolverán ${formatCurrency(editTx.amount)} a ${originWallet?.name} y se restarán de ${destWallet?.name}.`;
   };
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    // Read from refs to get IDs updated by async create handlers
+  // Función para ejecutar la transacción (usada tanto por submit normal como confirmación)
+  function executeTransaction() {
     const currentWalletId = latestWalletId.current || walletId;
     const currentCategoryId = latestCategoryId.current || categoryId;
-
     const numAmount = parseFloat(amount);
-    if (!numAmount || numAmount <= 0) { toast.error("Ingresa un monto válido"); return; }
-    if (!currentWalletId) { toast.error("Selecciona un wallet"); return; }
-    if (type !== "transfer" && !currentCategoryId) { toast.error("Selecciona una categoría"); return; }
-    if (type === "transfer" && !transferToWalletId) { toast.error("Selecciona el wallet destino"); return; }
-    if (type === "transfer" && currentWalletId === transferToWalletId) { toast.error("Los wallets deben ser diferentes"); return; }
 
     const txData = {
       type, amount: numAmount,
@@ -306,8 +344,88 @@ export function TransactionFormModal() {
     handleClose();
   }
 
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // Read from refs to get IDs updated by async create handlers
+    const currentWalletId = latestWalletId.current || walletId;
+    const currentCategoryId = latestCategoryId.current || categoryId;
+
+    const numAmount = parseFloat(amount);
+    if (!numAmount || numAmount <= 0) { toast.error("Ingresa un monto válido"); return; }
+    if (!currentWalletId) { toast.error("Selecciona un wallet"); return; }
+    if (type !== "transfer" && !currentCategoryId) { toast.error("Selecciona una categoría"); return; }
+    if (type === "transfer" && !transferToWalletId) { toast.error("Selecciona el wallet destino"); return; }
+    if (type === "transfer" && currentWalletId === transferToWalletId) { toast.error("Los wallets deben ser diferentes"); return; }
+
+    // Si hay fondos insuficientes, mostrar diálogo de confirmación en lugar de bloquear
+    if (fundsError && type !== "income") {
+      setShowInsufficientFundsConfirm(true);
+      return;
+    }
+
+    // Si no hay errores de fondos, ejecutar directamente
+    executeTransaction();
+  }
+
+  // Calcular el nuevo saldo para mostrar en el diálogo de confirmación
+  const getNewBalancePreview = () => {
+    const currentWalletId = latestWalletId.current || walletId;
+    const numAmount = parseFloat(amount) || 0;
+    
+    const sourceWallet = wallets.find((w) => w.id === currentWalletId);
+    const sourceDebt = debts.find((d) => d.id === currentWalletId);
+    
+    if (sourceWallet) {
+      const newBalance = sourceWallet.balance - numAmount;
+      return {
+        name: sourceWallet.name,
+        currentBalance: sourceWallet.balance,
+        newBalance,
+        currency: sourceWallet.currency,
+        isDebt: false,
+      };
+    } else if (sourceDebt) {
+      const newBalance = sourceDebt.currentBalance + numAmount;
+      const creditAvailable = sourceDebt.totalAmount - sourceDebt.currentBalance;
+      const exceededBy = numAmount - creditAvailable;
+      return {
+        name: sourceDebt.name,
+        currentBalance: sourceDebt.currentBalance,
+        newBalance,
+        currency: sourceDebt.currency,
+        isDebt: true,
+        creditLimit: sourceDebt.totalAmount,
+        exceededBy: exceededBy > 0 ? exceededBy : 0,
+      };
+    }
+    return null;
+  };
+
   const activeWallets = wallets.filter((w) => !w.isArchived);
+  const creditCardDebts = debts.filter((d) => (d.type === "credit_card" || d.type === "department_store") && d.isActive);
   const filteredCategories = categories.filter((c) => c.type === (type === "income" ? "income" : "expense"));
+
+  // Combined accounts: wallets + credit card debts
+  const allAccounts = [
+    ...activeWallets.map(w => ({
+      id: w.id,
+      name: w.name,
+      color: w.color,
+      balance: w.balance,
+      currency: w.currency,
+      type: 'wallet' as const,
+      icon: w.icon,
+    })),
+    ...creditCardDebts.map(d => ({
+      id: d.id,
+      name: d.name,
+      color: d.color,
+      balance: -d.currentBalance, // Negative because it's debt
+      currency: d.currency,
+      type: 'debt' as const,
+      icon: d.icon,
+    })),
+  ];
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -397,9 +515,12 @@ export function TransactionFormModal() {
               latestWalletId.current = id;
             }}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecciona wallet" />
+                <SelectValue placeholder="Selecciona cuenta" />
               </SelectTrigger>
               <SelectContent>
+                {activeWallets.length > 0 && (
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Wallets</div>
+                )}
                 {activeWallets.map((w) => (
                   <SelectItem key={w.id} value={w.id}>
                     <span className="flex items-center gap-2 w-full">
@@ -411,19 +532,59 @@ export function TransactionFormModal() {
                     </span>
                   </SelectItem>
                 ))}
+                {creditCardDebts.length > 0 && type !== "income" && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-1 pt-2">Tarjetas de Crédito / Departamentales</div>
+                    {creditCardDebts.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        <span className="flex items-center gap-2 w-full">
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                          <span className="truncate">{d.name}</span>
+                          <span className="ml-auto text-xs font-semibold tabular-nums text-red-500">
+                            -{formatCurrency(d.currentBalance, d.currency)}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
               </SelectContent>
             </Select>
+            {/* Mensaje de error de fondos insuficientes */}
+            {fundsError && type !== "income" && (
+              <p className="mt-1.5 text-sm text-red-500 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                {fundsError}
+              </p>
+            )}
           </div>
-
-          {/* Transfer destination */}
           {type === "transfer" && (
             <div>
-              <Label>Wallet destino</Label>
+              <Label>Destino</Label>
               <Select value={transferToWalletId} onValueChange={setTransferToWalletId}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Selecciona destino" />
                 </SelectTrigger>
                 <SelectContent>
+                  {/* Deudas primero */}
+                  {debts.filter((d) => d.isActive && d.id !== walletId).length > 0 && (
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Deudas</div>
+                  )}
+                  {debts.filter((d) => d.isActive && d.id !== walletId).map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      <span className="flex items-center gap-2 w-full">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                        <span className="truncate">{d.name}</span>
+                        <span className="ml-auto text-xs font-semibold tabular-nums text-red-500">
+                          -{formatCurrency(d.currentBalance, d.currency)}
+                        </span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                  {/* Wallets después */}
+                  {activeWallets.filter((w) => w.id !== walletId).length > 0 && (
+                    <div className={cn("px-2 py-1.5 text-xs font-semibold text-muted-foreground", debts.filter((d) => d.isActive && d.id !== walletId).length > 0 && "border-t mt-1 pt-2")}>Wallets</div>
+                  )}
                   {activeWallets.filter((w) => w.id !== walletId).map((w) => (
                     <SelectItem key={w.id} value={w.id}>
                       <span className="flex items-center gap-2 w-full">
@@ -644,6 +805,65 @@ export function TransactionFormModal() {
           </AlertDialogContent>
         </AlertDialog>
       )}
+
+      {/* Diálogo de confirmación para fondos insuficientes */}
+      <AlertDialog open={showInsufficientFundsConfirm} onOpenChange={setShowInsufficientFundsConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Fondos insuficientes
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p className="text-muted-foreground">
+                  {fundsError}
+                </p>
+                {(() => {
+                  const preview = getNewBalancePreview();
+                  if (!preview) return null;
+                  return (
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-3 space-y-2">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                        {preview.isDebt ? "Esto excederá tu límite de crédito:" : "El saldo quedará en negativo:"}
+                      </p>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">{preview.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={preview.isDebt ? "text-red-500" : "text-foreground"}>
+                            {preview.isDebt ? `-${formatCurrency(preview.currentBalance, preview.currency)}` : formatCurrency(preview.currentBalance, preview.currency)}
+                          </span>
+                          <span className="text-muted-foreground">→</span>
+                          <span className="font-semibold text-red-600">
+                            {preview.isDebt ? `-${formatCurrency(preview.newBalance, preview.currency)}` : formatCurrency(preview.newBalance, preview.currency)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <p className="text-sm text-amber-700 dark:text-amber-300 font-medium">
+                  ⚠️ Continuar podría descuadrar tus finanzas. ¿Deseas proceder de todos modos?
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowInsufficientFundsConfirm(false);
+                executeTransaction();
+              }} 
+              className="bg-amber-600 text-white hover:bg-amber-700"
+            >
+              Continuar de todos modos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

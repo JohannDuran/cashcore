@@ -1,6 +1,6 @@
 import { prisma } from '../prisma';
 import type { Prisma } from '@prisma/client';
-import { assertTransactionReferences } from './ownership';
+import { assertTransactionReferences, resolveAccountType } from './ownership';
 
 type Tx = Prisma.TransactionClient;
 
@@ -8,7 +8,9 @@ interface TransactionEffectsInput {
   amount: number;
   type: string;
   walletId: string | null;
+  debtId: string | null;
   transferToWalletId?: string | null;
+  transferToDebtId?: string | null;
 }
 
 /** Campos que jamás deben venir del payload del cliente */
@@ -43,6 +45,9 @@ export const transactionService = {
       include: {
         category: true,
         wallet: true,
+        debt: true,
+        transferToWallet: true,
+        transferToDebt: true,
         tags: true,
       },
       orderBy: { date: 'desc' },
@@ -55,17 +60,54 @@ export const transactionService = {
     const { clean, tagIds } = splitTransactionPayload(data);
 
     return prisma.$transaction(async (tx) => {
+      // El frontend envía walletId que puede ser un ID de Wallet o Debt
+      const sourceId = clean.walletId as string | null;
+      const transferToId = clean.transferToWalletId as string | null | undefined;
+      
       await assertTransactionReferences(tx, userId, {
-        walletId: clean.walletId as string,
-        transferToWalletId: clean.transferToWalletId as string | null | undefined,
+        walletId: sourceId!,
+        transferToWalletId: transferToId,
         categoryId: clean.categoryId as string,
         tagIds,
       });
 
+      // Determinar el tipo de cuenta origen y destino
+      let actualWalletId: string | null = null;
+      let actualDebtId: string | null = null;
+      let actualTransferToWalletId: string | null = null;
+      let actualTransferToDebtId: string | null = null;
+
+      if (sourceId) {
+        const sourceAccount = await resolveAccountType(tx, userId, sourceId);
+        if (sourceAccount?.type === 'wallet') {
+          actualWalletId = sourceId;
+        } else if (sourceAccount?.type === 'debt') {
+          actualDebtId = sourceId;
+        }
+      }
+
+      if (transferToId) {
+        const destAccount = await resolveAccountType(tx, userId, transferToId);
+        if (destAccount?.type === 'wallet') {
+          actualTransferToWalletId = transferToId;
+        } else if (destAccount?.type === 'debt') {
+          actualTransferToDebtId = transferToId;
+        }
+      }
+
+      // Preparar los datos para crear, removiendo los campos originales y agregando los correctos
+      const createData = { ...clean };
+      delete createData.walletId;
+      delete createData.transferToWalletId;
+
       const transaction = await tx.transaction.create({
         data: {
-          ...clean,
+          ...createData,
           userId,
+          walletId: actualWalletId,
+          debtId: actualDebtId,
+          transferToWalletId: actualTransferToWalletId,
+          transferToDebtId: actualTransferToDebtId,
           ...(tagIds.length ? { tags: { connect: tagIds.map((id) => ({ id })) } } : {}),
         } as Prisma.TransactionUncheckedCreateInput,
       });
@@ -85,22 +127,58 @@ export const transactionService = {
         where: { id: transactionId, userId },
       });
 
+      // El frontend envía walletId que puede ser un ID de Wallet o Debt
+      const sourceId = (clean.walletId as string | null | undefined) ?? oldTransaction.walletId ?? oldTransaction.debtId;
+      const transferToId = clean.transferToWalletId !== undefined
+        ? (clean.transferToWalletId as string | null)
+        : oldTransaction.transferToWalletId ?? oldTransaction.transferToDebtId;
+
       await assertTransactionReferences(tx, userId, {
-        walletId: (clean.walletId as string) ?? oldTransaction.walletId,
-        transferToWalletId:
-          clean.transferToWalletId !== undefined
-            ? (clean.transferToWalletId as string | null)
-            : oldTransaction.transferToWalletId,
+        walletId: sourceId!,
+        transferToWalletId: transferToId,
         categoryId: (clean.categoryId as string) ?? oldTransaction.categoryId,
         tagIds: tagIdsProvided ? tagIds : undefined,
       });
 
       await revertTransactionEffects(tx, userId, oldTransaction);
 
+      // Determinar el tipo de cuenta origen y destino
+      let actualWalletId: string | null = null;
+      let actualDebtId: string | null = null;
+      let actualTransferToWalletId: string | null = null;
+      let actualTransferToDebtId: string | null = null;
+
+      if (sourceId) {
+        const sourceAccount = await resolveAccountType(tx, userId, sourceId);
+        if (sourceAccount?.type === 'wallet') {
+          actualWalletId = sourceId;
+        } else if (sourceAccount?.type === 'debt') {
+          actualDebtId = sourceId;
+        }
+      }
+
+      if (transferToId) {
+        const destAccount = await resolveAccountType(tx, userId, transferToId);
+        if (destAccount?.type === 'wallet') {
+          actualTransferToWalletId = transferToId;
+        } else if (destAccount?.type === 'debt') {
+          actualTransferToDebtId = transferToId;
+        }
+      }
+
+      // Preparar los datos para actualizar
+      const updateData = { ...clean };
+      delete updateData.walletId;
+      delete updateData.transferToWalletId;
+
       const transaction = await tx.transaction.update({
         where: { id: transactionId, userId },
         data: {
-          ...clean,
+          ...updateData,
+          walletId: actualWalletId,
+          debtId: actualDebtId,
+          transferToWalletId: actualTransferToWalletId,
+          transferToDebtId: actualTransferToDebtId,
           ...(tagIdsProvided ? { tags: { set: tagIds.map((id) => ({ id })) } } : {}),
         } as Prisma.TransactionUncheckedUpdateInput,
       });
@@ -129,35 +207,63 @@ export const transactionService = {
 };
 
 /**
- * Aplica el impacto financiero de una transacción sobre las wallets del usuario.
+ * Aplica el impacto financiero de una transacción sobre las wallets/deudas del usuario.
  * El `where: { id, userId }` es defense-in-depth: aunque se omita una validación
- * previa, jamás se toca una wallet ajena (Prisma lanza P2025 si no coincide).
+ * previa, jamás se toca una wallet/deuda ajena (Prisma lanza P2025 si no coincide).
  */
 async function applyTransactionEffects(
   tx: Tx,
   userId: string,
   transaction: TransactionEffectsInput
 ) {
-  // Si no hay walletId, no hay efectos financieros que aplicar
-  if (!transaction.walletId) return;
-
-  if (transaction.type === 'expense' || transaction.type === 'transfer') {
-    await tx.wallet.update({
-      where: { id: transaction.walletId, userId },
-      data: { balance: { decrement: transaction.amount } },
-    });
-  } else if (transaction.type === 'income') {
-    await tx.wallet.update({
-      where: { id: transaction.walletId, userId },
-      data: { balance: { increment: transaction.amount } },
-    });
+  const { walletId, debtId, transferToWalletId, transferToDebtId, type, amount } = transaction;
+  
+  // Efectos en la cuenta origen (wallet o debt)
+  if (type === 'expense' || type === 'transfer') {
+    if (walletId) {
+      // Origen es wallet: decrementar balance
+      await tx.wallet.update({
+        where: { id: walletId, userId },
+        data: { balance: { decrement: amount } },
+      });
+    } else if (debtId) {
+      // Origen es deuda (tarjeta de crédito): incrementar saldo adeudado
+      await tx.debt.update({
+        where: { id: debtId, userId },
+        data: { currentBalance: { increment: amount } },
+      });
+    }
+  } else if (type === 'income') {
+    if (walletId) {
+      // Ingreso a wallet: incrementar balance
+      await tx.wallet.update({
+        where: { id: walletId, userId },
+        data: { balance: { increment: amount } },
+      });
+    } else if (debtId) {
+      // Ingreso a deuda: decrementar saldo adeudado (pago)
+      await tx.debt.update({
+        where: { id: debtId, userId },
+        data: { currentBalance: { decrement: amount } },
+      });
+    }
   }
 
-  if (transaction.type === 'transfer' && transaction.transferToWalletId) {
-    await tx.wallet.update({
-      where: { id: transaction.transferToWalletId, userId },
-      data: { balance: { increment: transaction.amount } },
-    });
+  // Efectos en la cuenta destino (solo para transferencias)
+  if (type === 'transfer') {
+    if (transferToWalletId) {
+      // Destino es wallet: incrementar balance
+      await tx.wallet.update({
+        where: { id: transferToWalletId, userId },
+        data: { balance: { increment: amount } },
+      });
+    } else if (transferToDebtId) {
+      // Destino es deuda: decrementar saldo adeudado (pago de deuda)
+      await tx.debt.update({
+        where: { id: transferToDebtId, userId },
+        data: { currentBalance: { decrement: amount } },
+      });
+    }
   }
 }
 
@@ -170,25 +276,53 @@ async function revertTransactionEffects(
   userId: string,
   transaction: TransactionEffectsInput
 ) {
-  // Si no hay walletId, no hay efectos financieros que revertir
-  if (!transaction.walletId) return;
+  const { walletId, debtId, transferToWalletId, transferToDebtId, type, amount } = transaction;
 
-  if (transaction.type === 'expense' || transaction.type === 'transfer') {
-    await tx.wallet.update({
-      where: { id: transaction.walletId, userId },
-      data: { balance: { increment: transaction.amount } },
-    });
-  } else if (transaction.type === 'income') {
-    await tx.wallet.update({
-      where: { id: transaction.walletId, userId },
-      data: { balance: { decrement: transaction.amount } },
-    });
+  // Revertir efectos en la cuenta origen
+  if (type === 'expense' || type === 'transfer') {
+    if (walletId) {
+      // Revertir decremento en wallet: incrementar
+      await tx.wallet.update({
+        where: { id: walletId, userId },
+        data: { balance: { increment: amount } },
+      });
+    } else if (debtId) {
+      // Revertir incremento en deuda: decrementar
+      await tx.debt.update({
+        where: { id: debtId, userId },
+        data: { currentBalance: { decrement: amount } },
+      });
+    }
+  } else if (type === 'income') {
+    if (walletId) {
+      // Revertir incremento en wallet: decrementar
+      await tx.wallet.update({
+        where: { id: walletId, userId },
+        data: { balance: { decrement: amount } },
+      });
+    } else if (debtId) {
+      // Revertir decremento en deuda: incrementar
+      await tx.debt.update({
+        where: { id: debtId, userId },
+        data: { currentBalance: { increment: amount } },
+      });
+    }
   }
 
-  if (transaction.type === 'transfer' && transaction.transferToWalletId) {
-    await tx.wallet.update({
-      where: { id: transaction.transferToWalletId, userId },
-      data: { balance: { decrement: transaction.amount } },
-    });
+  // Revertir efectos en la cuenta destino (solo para transferencias)
+  if (type === 'transfer') {
+    if (transferToWalletId) {
+      // Revertir incremento en wallet destino: decrementar
+      await tx.wallet.update({
+        where: { id: transferToWalletId, userId },
+        data: { balance: { decrement: amount } },
+      });
+    } else if (transferToDebtId) {
+      // Revertir decremento en deuda destino: incrementar
+      await tx.debt.update({
+        where: { id: transferToDebtId, userId },
+        data: { currentBalance: { increment: amount } },
+      });
+    }
   }
 }
