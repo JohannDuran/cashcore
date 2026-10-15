@@ -27,7 +27,59 @@ import {
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { toast } from "sonner";
-import { CreditCard } from "lucide-react";
+import { CreditCard, AlertCircle, CheckCircle2, Clock } from "lucide-react";
+
+/**
+ * Calcula la próxima fecha de pago basado en la configuración
+ */
+function getNextPaymentDate(debt: Debt): Date | null {
+  if (debt.nextPaymentDate) {
+    return new Date(debt.nextPaymentDate);
+  }
+  
+  if (debt.paymentDueDay) {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    let nextDate = new Date(currentYear, currentMonth, debt.paymentDueDay);
+    
+    if (nextDate < today) {
+      nextDate = new Date(currentYear, currentMonth + 1, debt.paymentDueDay);
+    }
+    
+    return nextDate;
+  }
+  
+  return null;
+}
+
+/**
+ * Verifica si una fecha de pago está a tiempo (antes o igual a la fecha límite)
+ */
+function isPaymentOnTime(paymentDate: Date, dueDate: Date | null): boolean {
+  if (!dueDate) return true; // Si no hay fecha límite, siempre es a tiempo
+  
+  const payment = new Date(paymentDate);
+  const due = new Date(dueDate);
+  
+  // Normalizar a medianoche para comparar solo fechas
+  payment.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  
+  return payment <= due;
+}
+
+/**
+ * Formatea la fecha de pago
+ */
+function formatPaymentDueDate(date: Date): string {
+  return date.toLocaleDateString("es-MX", { 
+    day: "numeric", 
+    month: "short",
+    year: "numeric"
+  });
+}
 
 interface DebtPaymentFormProps {
   debt: Debt | null;
@@ -84,10 +136,9 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
       toast.error("Selecciona un wallet de origen");
       return;
     }
-    if (numAmount > debt.currentBalance) {
-      toast.error("El monto no puede ser mayor al saldo pendiente");
-      return;
-    }
+
+    // Ya NO bloqueamos pagos mayores al saldo - permite saldo a favor
+    // if (numAmount > debt.currentBalance) { ... }
 
     setIsSubmitting(true);
 
@@ -104,6 +155,11 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
         setIsSubmitting(false);
         return;
       }
+
+      // Verificar si el pago está a tiempo
+      const paymentDate = new Date(date);
+      const dueDate = getNextPaymentDate(debt);
+      const paymentOnTime = isPaymentOnTime(paymentDate, dueDate);
 
       // Create transaction data
       const txData = {
@@ -125,8 +181,8 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
       // Update local state optimistically
       addTransaction(txData);
       
-      // Calculate new balance
-      const newBalance = Math.max(debt.currentBalance - numAmount, 0);
+      // Calcular nuevo balance - PERMITE SALDO NEGATIVO (saldo a favor)
+      const newBalance = debt.currentBalance - numAmount;
       updateDebt(debt.id, { currentBalance: newBalance });
 
       // Persist to database
@@ -140,12 +196,29 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
       } else if (!debtRes.success) {
         toast.error("Error al actualizar la deuda: " + debtRes.error);
       } else {
-        const isFullyPaid = newBalance <= 0;
-        toast.success(
-          isFullyPaid 
-            ? `¡Felicidades! Has pagado completamente "${debt.name}"` 
-            : `Pago de ${formatCurrency(numAmount, debt.currency)} registrado`
-        );
+        const hasSaldoAFavor = newBalance < 0;
+        const isFullyPaid = newBalance <= 0 && newBalance >= 0;
+        const meetsMinimum = debt.minimumPayment ? numAmount >= debt.minimumPayment : true;
+        
+        // Construir mensaje de éxito
+        let successMessage = "";
+        
+        if (hasSaldoAFavor) {
+          successMessage = `Pago registrado. Tienes ${formatCurrency(Math.abs(newBalance), debt.currency)} a favor`;
+        } else if (isFullyPaid) {
+          successMessage = `¡Felicidades! Has pagado completamente "${debt.name}"`;
+        } else {
+          successMessage = `Pago de ${formatCurrency(numAmount, debt.currency)} registrado`;
+        }
+        
+        // Agregar información sobre estado del pago
+        if (!paymentOnTime && dueDate) {
+          toast.warning(`${successMessage}. ⚠️ Pago registrado fuera de fecha límite`);
+        } else if (meetsMinimum) {
+          toast.success(`${successMessage}${debt.minimumPayment ? " ✓ Pago mínimo cumplido" : ""}`);
+        } else {
+          toast.success(`${successMessage}. ℹ️ Pago menor al mínimo sugerido`);
+        }
       }
 
       handleClose();
@@ -159,8 +232,16 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
   const activeWallets = wallets.filter(w => !w.isArchived);
   const selectedWallet = wallets.find(w => w.id === walletId);
   const numAmount = parseFloat(amount) || 0;
-  const newBalance = debt ? Math.max(debt.currentBalance - numAmount, 0) : 0;
-  const willBeFullyPaid = debt && numAmount >= debt.currentBalance;
+  // Nuevo balance permitiendo negativos
+  const newBalance = debt ? debt.currentBalance - numAmount : 0;
+  const willBeFullyPaid = debt && numAmount >= debt.currentBalance && debt.currentBalance > 0;
+  const willHaveSaldoAFavor = debt && numAmount > debt.currentBalance && debt.currentBalance > 0;
+  
+  // Calcular estado del pago
+  const nextPaymentDue = debt ? getNextPaymentDate(debt) : null;
+  const paymentDate = new Date(date);
+  const paymentOnTime = isPaymentOnTime(paymentDate, nextPaymentDue);
+  const meetsMinimum = debt?.minimumPayment ? numAmount >= debt.minimumPayment : true;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -189,28 +270,50 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
                 <div className="flex-1 min-w-0">
                   <h4 className="font-semibold text-sm truncate">{debt.name}</h4>
                   <p className="text-xs text-muted-foreground">
-                    Saldo pendiente:{" "}
+                    {debt.currentBalance < 0 ? "Saldo a favor: " : "Saldo pendiente: "}
                     <CurrencyDisplay
-                      amount={debt.currentBalance}
+                      amount={Math.abs(debt.currentBalance)}
                       currency={debt.currency}
                       size="sm"
-                      type="expense"
+                      type={debt.currentBalance < 0 ? "income" : "expense"}
                       className="font-medium"
                     />
                   </p>
                 </div>
               </div>
-              {debt.minimumPayment && (
-                <div className="mt-3 pt-3 border-t border-border/60 flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Pago mínimo sugerido</span>
-                  <CurrencyDisplay
-                    amount={debt.minimumPayment}
-                    currency={debt.currency}
-                    size="sm"
-                    className="font-medium"
-                  />
-                </div>
-              )}
+              
+              {/* Información de pago mínimo y fecha límite */}
+              <div className="mt-3 pt-3 border-t border-border/60 space-y-2">
+                {debt.minimumPayment && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Pago mínimo sugerido</span>
+                    <CurrencyDisplay
+                      amount={debt.minimumPayment}
+                      currency={debt.currency}
+                      size="sm"
+                      className="font-medium"
+                    />
+                  </div>
+                )}
+                {nextPaymentDue && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Fecha límite de pago</span>
+                    <div className="flex items-center gap-1">
+                      {!paymentOnTime ? (
+                        <AlertCircle className="w-3 h-3 text-amber-500" />
+                      ) : (
+                        <Clock className="w-3 h-3 text-muted-foreground" />
+                      )}
+                      <span className={cn(
+                        "text-xs font-medium",
+                        !paymentOnTime && "text-amber-500"
+                      )}>
+                        {formatPaymentDueDate(nextPaymentDue)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Amount */}
@@ -225,7 +328,6 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
                   type="number"
                   step="0.01"
                   min="0"
-                  max={debt.currentBalance}
                   placeholder="0.00"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -233,15 +335,26 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
                   autoFocus
                 />
               </div>
-              {debt.minimumPayment && !amount && (
-                <button
-                  type="button"
-                  onClick={() => setAmount(debt.minimumPayment?.toString() || "")}
-                  className="text-xs text-primary hover:underline mt-1 cursor-pointer"
-                >
-                  Usar pago mínimo ({formatCurrency(debt.minimumPayment, debt.currency)})
-                </button>
-              )}
+              <div className="flex flex-wrap gap-2 mt-2">
+                {debt.minimumPayment && !amount && (
+                  <button
+                    type="button"
+                    onClick={() => setAmount(debt.minimumPayment?.toString() || "")}
+                    className="text-xs text-primary hover:underline cursor-pointer"
+                  >
+                    Pago mínimo ({formatCurrency(debt.minimumPayment, debt.currency)})
+                  </button>
+                )}
+                {debt.currentBalance > 0 && !amount && (
+                  <button
+                    type="button"
+                    onClick={() => setAmount(debt.currentBalance.toString())}
+                    className="text-xs text-emerald-600 hover:underline cursor-pointer"
+                  >
+                    Liquidar total ({formatCurrency(debt.currentBalance, debt.currency)})
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Wallet selector */}
@@ -317,27 +430,76 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
 
             {/* Preview */}
             {numAmount > 0 && (
-              <div className={cn(
-                "p-3 rounded-lg border",
-                willBeFullyPaid 
-                  ? "bg-emerald-500/10 border-emerald-500/30" 
-                  : "bg-muted/50 border-border"
-              )}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Nuevo saldo después del pago</span>
-                  <CurrencyDisplay
-                    amount={newBalance}
-                    currency={debt.currency}
-                    size="sm"
-                    type={newBalance > 0 ? "expense" : "neutral"}
-                    className="font-semibold"
-                  />
+              <div className="space-y-3">
+                {/* Estado del pago */}
+                <div className={cn(
+                  "p-3 rounded-lg border",
+                  willHaveSaldoAFavor 
+                    ? "bg-blue-500/10 border-blue-500/30" 
+                    : willBeFullyPaid 
+                      ? "bg-emerald-500/10 border-emerald-500/30" 
+                      : "bg-muted/50 border-border"
+                )}>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {newBalance < 0 ? "Saldo a favor después del pago" : "Nuevo saldo después del pago"}
+                    </span>
+                    <CurrencyDisplay
+                      amount={Math.abs(newBalance)}
+                      currency={debt.currency}
+                      size="sm"
+                      type={newBalance < 0 ? "income" : newBalance > 0 ? "expense" : "neutral"}
+                      className="font-semibold"
+                    />
+                  </div>
+                  {willHaveSaldoAFavor && (
+                    <p className="text-xs text-blue-600 mt-1 font-medium">
+                      💰 Tendrás saldo a favor para el próximo corte
+                    </p>
+                  )}
+                  {willBeFullyPaid && !willHaveSaldoAFavor && (
+                    <p className="text-xs text-emerald-600 mt-1 font-medium">
+                      🎉 ¡Con este pago liquidarás completamente esta deuda!
+                    </p>
+                  )}
                 </div>
-                {willBeFullyPaid && (
-                  <p className="text-xs text-emerald-600 mt-1 font-medium">
-                    🎉 ¡Con este pago liquidarás completamente esta deuda!
-                  </p>
-                )}
+
+                {/* Indicadores de estado del pago */}
+                <div className="flex flex-wrap gap-2">
+                  {/* Pago mínimo */}
+                  {debt.minimumPayment && (
+                    <div className={cn(
+                      "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
+                      meetsMinimum 
+                        ? "bg-emerald-500/10 text-emerald-600" 
+                        : "bg-amber-500/10 text-amber-600"
+                    )}>
+                      {meetsMinimum ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3" />
+                      )}
+                      {meetsMinimum ? "Cumple pago mínimo" : "Menor al pago mínimo"}
+                    </div>
+                  )}
+                  
+                  {/* Fecha de pago */}
+                  {nextPaymentDue && (
+                    <div className={cn(
+                      "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium",
+                      paymentOnTime 
+                        ? "bg-emerald-500/10 text-emerald-600" 
+                        : "bg-amber-500/10 text-amber-600"
+                    )}>
+                      {paymentOnTime ? (
+                        <CheckCircle2 className="w-3 h-3" />
+                      ) : (
+                        <AlertCircle className="w-3 h-3" />
+                      )}
+                      {paymentOnTime ? "Pago a tiempo" : "Fuera de fecha límite"}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

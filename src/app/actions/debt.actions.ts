@@ -7,22 +7,63 @@ import { sanitizeError } from "@/lib/utils";
 import logger from "@/lib/logger";
 
 /**
+ * Convierte un valor a Date válido, o retorna null si es inválido/vacío
+ */
+function toValidDate(value: unknown): Date | null {
+  if (!value) return null;
+  
+  // Si ya es Date, verificar validez
+  if (value instanceof Date) {
+    return isNaN(value.getTime()) ? null : value;
+  }
+  
+  // Si es string, intentar parsear
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    
+    const date = new Date(trimmed);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  
+  // Si es número (timestamp)
+  if (typeof value === 'number') {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  
+  return null;
+}
+
+/**
  * Normaliza las llaves de la capa frontend hacia la estructura de Prisma
  */
 function mapFrontendToDb(frontendDebt: Partial<Debt>) {
   const dbData: Record<string, unknown> = { ...frontendDebt };
   
-  if (dbData.startDate && typeof dbData.startDate === 'string') {
-    dbData.startDate = new Date(dbData.startDate);
+  // Convertir fechas con validación
+  if ('startDate' in dbData) {
+    dbData.startDate = toValidDate(dbData.startDate);
   }
-  if (dbData.endDate && typeof dbData.endDate === 'string') {
-    dbData.endDate = new Date(dbData.endDate);
+  
+  if ('endDate' in dbData) {
+    const endDate = toValidDate(dbData.endDate);
+    // Si endDate es null o inválido, establecer como null (campo opcional)
+    dbData.endDate = endDate;
   }
-  if (dbData.createdAt && (typeof dbData.createdAt === 'string' || typeof dbData.createdAt === 'number' || dbData.createdAt instanceof Date)) {
-    dbData.createdAt = new Date(dbData.createdAt);
+  
+  if ('nextPaymentDate' in dbData) {
+    const nextPaymentDate = toValidDate(dbData.nextPaymentDate);
+    // Si nextPaymentDate es null o inválido, establecer como null (campo opcional)
+    dbData.nextPaymentDate = nextPaymentDate;
   }
-  if (dbData.updatedAt && (typeof dbData.updatedAt === 'string' || typeof dbData.updatedAt === 'number' || dbData.updatedAt instanceof Date)) {
-    dbData.updatedAt = new Date(dbData.updatedAt);
+  
+  if ('createdAt' in dbData) {
+    dbData.createdAt = toValidDate(dbData.createdAt);
+  }
+  
+  if ('updatedAt' in dbData) {
+    dbData.updatedAt = toValidDate(dbData.updatedAt);
   }
 
   return dbData;

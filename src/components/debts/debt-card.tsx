@@ -8,8 +8,67 @@ import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { debtTypeLabels } from "@/lib/constants";
 import type { Debt } from "@/types";
-import { Edit, Banknote } from "lucide-react";
+import { Edit, Banknote, Calendar, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+/**
+ * Calcula la próxima fecha de pago basado en el día de corte configurado
+ * o usa nextPaymentDate si está disponible
+ */
+function getNextPaymentDate(debt: Debt): Date | null {
+  // Si tiene nextPaymentDate configurado, usarlo
+  if (debt.nextPaymentDate) {
+    return new Date(debt.nextPaymentDate);
+  }
+  
+  // Si solo tiene día de pago, calcular la próxima fecha
+  if (debt.paymentDueDay) {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    // Crear fecha con el día de pago en el mes actual
+    let nextDate = new Date(currentYear, currentMonth, debt.paymentDueDay);
+    
+    // Si ya pasó este mes, ir al siguiente
+    if (nextDate < today) {
+      nextDate = new Date(currentYear, currentMonth + 1, debt.paymentDueDay);
+    }
+    
+    return nextDate;
+  }
+  
+  return null;
+}
+
+/**
+ * Formatea la fecha de pago mostrando día y mes
+ */
+function formatPaymentDueDate(date: Date): string {
+  return date.toLocaleDateString("es-MX", { 
+    day: "numeric", 
+    month: "short" 
+  });
+}
+
+/**
+ * Verifica si la fecha de pago está próxima (dentro de 7 días) o vencida
+ */
+function getPaymentStatus(nextPaymentDate: Date | null): "ok" | "warning" | "overdue" | null {
+  if (!nextPaymentDate) return null;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const paymentDate = new Date(nextPaymentDate);
+  paymentDate.setHours(0, 0, 0, 0);
+  
+  const diffTime = paymentDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) return "overdue";
+  if (diffDays <= 7) return "warning";
+  return "ok";
+}
 
 interface DebtCardProps {
   debt: Debt;
@@ -25,12 +84,17 @@ export function DebtCard({ debt, onEdit, onPay, onClick }: DebtCardProps) {
     : 0;
   
   const isFullyPaid = debt.currentBalance <= 0;
+  const hasSaldoAFavor = debt.currentBalance < 0;
+  
+  // Calcular fecha de pago y estado
+  const nextPaymentDate = getNextPaymentDate(debt);
+  const paymentStatus = getPaymentStatus(nextPaymentDate);
 
   return (
     <Card
       className={cn(
         "group hover:shadow-md transition-all duration-300 cursor-pointer overflow-hidden relative",
-        isFullyPaid && "opacity-60"
+        isFullyPaid && !hasSaldoAFavor && "opacity-60"
       )}
       onClick={onClick}
     >
@@ -78,14 +142,26 @@ export function DebtCard({ debt, onEdit, onPay, onClick }: DebtCardProps) {
 
         {/* Saldo actual */}
         <div className="space-y-1">
-          <p className="text-xs text-muted-foreground">Saldo pendiente</p>
-          <CurrencyDisplay
-            amount={Math.max(debt.currentBalance, 0)}
-            currency={debt.currency}
-            type={debt.currentBalance > 0 ? "expense" : "neutral"}
-            size="lg"
-            className="block"
-          />
+          <p className="text-xs text-muted-foreground">
+            {hasSaldoAFavor ? "Saldo a favor" : "Saldo pendiente"}
+          </p>
+          {hasSaldoAFavor ? (
+            <CurrencyDisplay
+              amount={Math.abs(debt.currentBalance)}
+              currency={debt.currency}
+              type="income"
+              size="lg"
+              className="block"
+            />
+          ) : (
+            <CurrencyDisplay
+              amount={debt.currentBalance}
+              currency={debt.currency}
+              type={debt.currentBalance > 0 ? "expense" : "neutral"}
+              size="lg"
+              className="block"
+            />
+          )}
         </div>
 
         {/* Progreso de pago */}
@@ -110,7 +186,7 @@ export function DebtCard({ debt, onEdit, onPay, onClick }: DebtCardProps) {
         </div>
 
         {/* Detalles de pago */}
-        {(debt.minimumPayment || debt.paymentDueDay || debt.interestRate) && (
+        {(debt.minimumPayment || debt.paymentDueDay || nextPaymentDate || debt.interestRate) && (
           <div className="mt-3 space-y-2 rounded-lg bg-muted/50 p-2">
             <div className="grid grid-cols-2 gap-2">
               {debt.minimumPayment && (
@@ -124,7 +200,38 @@ export function DebtCard({ debt, onEdit, onPay, onClick }: DebtCardProps) {
                   />
                 </div>
               )}
-              {debt.paymentDueDay && (
+              {/* Fecha de pago con día y mes */}
+              {nextPaymentDate && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Fecha límite de pago</p>
+                  <div className="flex items-center gap-1">
+                    {paymentStatus === "overdue" && (
+                      <AlertCircle className="w-3 h-3 text-red-500" />
+                    )}
+                    {paymentStatus === "warning" && (
+                      <Calendar className="w-3 h-3 text-amber-500" />
+                    )}
+                    {paymentStatus === "ok" && (
+                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                    )}
+                    <p className={cn(
+                      "text-xs font-medium",
+                      paymentStatus === "overdue" && "text-red-500",
+                      paymentStatus === "warning" && "text-amber-500"
+                    )}>
+                      {formatPaymentDueDate(nextPaymentDate)}
+                    </p>
+                  </div>
+                  {paymentStatus === "overdue" && (
+                    <p className="text-[10px] text-red-500">Vencido</p>
+                  )}
+                  {paymentStatus === "warning" && (
+                    <p className="text-[10px] text-amber-500">Próximo a vencer</p>
+                  )}
+                </div>
+              )}
+              {/* Fallback: solo día si no hay fecha completa */}
+              {!nextPaymentDate && debt.paymentDueDay && (
                 <div>
                   <p className="text-[10px] text-muted-foreground">Día de pago</p>
                   <p className="text-xs font-medium">Día {debt.paymentDueDay}</p>

@@ -169,6 +169,7 @@ export interface Debt {
   interestRate?: number | null;
   minimumPayment?: number | null;
   paymentDueDay?: number | null;
+  nextPaymentDate?: string | null;
   startDate: string;
   endDate?: string | null;
   icon: string;
