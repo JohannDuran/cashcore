@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import type { Prisma } from '@prisma/client';
 
 /** Campos que jamás deben venir del payload del cliente */
 const PROTECTED_DEBT_FIELDS = ['id', 'userId', 'createdAt', 'updatedAt'] as const;
@@ -30,14 +31,14 @@ export const debtService = {
       data: {
         ...stripProtectedFields(data),
         userId,
-      },
+      } as Prisma.DebtUncheckedCreateInput,
     });
   },
 
   async updateDebt(userId: string, debtId: string, data: Record<string, unknown>) {
     return prisma.debt.update({
       where: { id: debtId, userId },
-      data: stripProtectedFields(data),
+      data: stripProtectedFields(data) as Prisma.DebtUncheckedUpdateInput,
     });
   },
 

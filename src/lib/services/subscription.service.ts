@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import type { Prisma } from '@prisma/client';
 import { assertCategoryAccess, assertWalletOwnership } from './ownership';
 
 /** Campos que jamás deben venir del payload del cliente */
@@ -39,7 +40,7 @@ export const subscriptionService = {
           user: { connect: { id: userId } },
           category: { connect: { id: categoryId } },
           ...(walletId && { wallet: { connect: { id: walletId } } }),
-        },
+        } as Prisma.SubscriptionCreateInput,
       });
     });
   },
@@ -69,7 +70,7 @@ export const subscriptionService = {
             : walletId
               ? { wallet: { connect: { id: walletId } } }
               : {}),
-        },
+        } as Prisma.SubscriptionUpdateInput,
       });
     });
   },

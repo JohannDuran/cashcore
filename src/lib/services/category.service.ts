@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import type { Prisma } from '@prisma/client';
 
 export const categoryService = {
   async getCategories(userId: string) {
@@ -19,7 +20,7 @@ export const categoryService = {
         ...data,
         userId,
         isDefault: false,
-      },
+      } as Prisma.CategoryUncheckedCreateInput,
     });
   },
 

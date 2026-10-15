@@ -197,7 +197,7 @@ export function SubscriptionFormModal() {
       color,
       isActive,
       isDomiciliado,
-      walletId: isDomiciliado && walletId ? walletId : null,
+      walletId: isDomiciliado && walletId ? walletId : undefined,
       notes: notes.trim() || undefined,
     };
 

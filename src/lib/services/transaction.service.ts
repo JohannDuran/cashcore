@@ -7,7 +7,7 @@ type Tx = Prisma.TransactionClient;
 interface TransactionEffectsInput {
   amount: number;
   type: string;
-  walletId: string;
+  walletId: string | null;
   transferToWalletId?: string | null;
 }
 
@@ -66,7 +66,7 @@ export const transactionService = {
           ...clean,
           userId,
           ...(tagIds.length ? { tags: { connect: tagIds.map((id) => ({ id })) } } : {}),
-        },
+        } as Prisma.TransactionUncheckedCreateInput,
       });
 
       await applyTransactionEffects(tx, userId, transaction);
@@ -101,7 +101,7 @@ export const transactionService = {
         data: {
           ...clean,
           ...(tagIdsProvided ? { tags: { set: tagIds.map((id) => ({ id })) } } : {}),
-        },
+        } as Prisma.TransactionUncheckedUpdateInput,
       });
 
       await applyTransactionEffects(tx, userId, transaction);
@@ -137,6 +137,9 @@ async function applyTransactionEffects(
   userId: string,
   transaction: TransactionEffectsInput
 ) {
+  // Si no hay walletId, no hay efectos financieros que aplicar
+  if (!transaction.walletId) return;
+
   if (transaction.type === 'expense' || transaction.type === 'transfer') {
     await tx.wallet.update({
       where: { id: transaction.walletId, userId },
@@ -166,6 +169,9 @@ async function revertTransactionEffects(
   userId: string,
   transaction: TransactionEffectsInput
 ) {
+  // Si no hay walletId, no hay efectos financieros que revertir
+  if (!transaction.walletId) return;
+
   if (transaction.type === 'expense' || transaction.type === 'transfer') {
     await tx.wallet.update({
       where: { id: transaction.walletId, userId },

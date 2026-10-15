@@ -61,6 +61,11 @@ export async function getDashboardDataAction() {
       }
     });
 
+    const debts = await prisma.debt.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    });
+
     return { 
       success: true, 
       data: {
@@ -71,7 +76,8 @@ export async function getDashboardDataAction() {
         categories,
         tags,
         goals,
-        subscriptions
+        subscriptions,
+        debts
       }
     };
   } catch (error) {

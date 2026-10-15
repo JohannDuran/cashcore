@@ -1,4 +1,5 @@
 import { prisma } from '../prisma';
+import type { Prisma } from '@prisma/client';
 import { assertWalletOwnership } from './ownership';
 
 /** Campos que jamás deben venir del payload del cliente */
@@ -32,7 +33,7 @@ export const goalService = {
         data: {
           ...clean,
           userId,
-        },
+        } as Prisma.GoalUncheckedCreateInput,
       });
     });
   },
@@ -47,7 +48,7 @@ export const goalService = {
 
       return tx.goal.update({
         where: { id: goalId, userId },
-        data: clean,
+        data: clean as Prisma.GoalUncheckedUpdateInput,
       });
     });
   },
