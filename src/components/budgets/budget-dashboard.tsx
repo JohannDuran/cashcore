@@ -68,7 +68,7 @@ function getCategoryBreakdown(
       budget.categoryIds.includes(t.categoryId) &&
       new Date(t.date) >= startDate &&
       new Date(t.date) <= endBound &&
-      (budget.walletIds.length === 0 || budget.walletIds.includes(t.walletId))
+      (budget.walletIds.length === 0 || (t.walletId && budget.walletIds.includes(t.walletId)))
   );
 
   const byCategory = new Map<string, number>();
