@@ -112,6 +112,7 @@ Luego **cierra y reabre la terminal otra vez** para que tome efecto.
 Volta solo puede fijar la versión del proyecto si **es él quien provee `node`**. Si tienes otra fuente de Node delante en el PATH, verás una versión equivocada aunque Volta esté instalado. Las fuentes que suelen "ganarle" a Volta:
 
 - **pnpm gestionando Node** (binario en `AppData\Local\pnpm\bin\node.exe`). Ocurre si activaste `pnpm env use` o `manage-package-manager-versions`.
+- **Homebrew en macOS** (binario en `/opt/homebrew/bin/node` o `/usr/local/bin/node`). Ocurre si instalaste Node con `brew install node`.
 - **nvm / nvm-windows**, o un Node instalado a mano desde nodejs.org.
 
 **Cómo saber quién provee tu Node:**
@@ -124,9 +125,34 @@ which node
 ```
 
 - Si la ruta contiene `Volta` → correcto, Volta manda. ✅
-- Si contiene `pnpm`, `nvm` o `nodejs` → esa fuente está ganando. Debes dejar de usarla para Node y asegurar que la carpeta de Volta quede **antes** en el PATH. En el caso de pnpm, revisa que no tengas Node gestionado por pnpm (`pnpm env` ) y reinicia la terminal.
+- Si contiene `pnpm`, `homebrew`, `nvm` o `nodejs` → esa fuente está ganando. Debes dejar de usarla para Node y asegurar que la carpeta de Volta quede **antes** en el PATH. En el caso de pnpm, revisa que no tengas Node gestionado por pnpm (`pnpm env`) y reinicia la terminal.
 
-> **Regla de oro:** elige **un solo** gestor de Node (aquí, Volta). No instales Node por otras vías. Así el campo `volta` del `package.json` siempre manda.
+**macOS (Homebrew) — caso frecuente.** Si `which node` muestra `/opt/homebrew/bin/node`, Homebrew está ganando. El PATH se lee de izquierda a derecha: **la primera coincidencia gana**, así que `.volta/bin` debe aparecer **antes** que `/opt/homebrew/bin`. Arréglalo así:
+
+1. Localiza dónde se define cada uno:
+   ```bash
+   grep -n -E 'volta|VOLTA_HOME|brew shellenv|homebrew' ~/.zshrc ~/.zprofile ~/.bash_profile ~/.profile 2>/dev/null
+   ```
+2. En el **mismo archivo** donde esté la línea de Homebrew (`brew shellenv`), agrega **al final del todo** (después de Homebrew) estas dos líneas. Usan `:$PATH`, que antepone, así que lo último ejecutado queda primero:
+   ```bash
+   export VOLTA_HOME="$HOME/.volta"
+   export PATH="$VOLTA_HOME/bin:$PATH"
+   ```
+   Si esas líneas ya existían pero **arriba** de Homebrew, muévelas al final.
+3. Recarga el shell: `source ~/.zshrc` (o cierra y abre la terminal).
+4. Verifica el **orden** del PATH (Volta debe salir primero):
+   ```bash
+   echo $PATH | tr ':' '\n' | grep -nE 'volta|homebrew'
+   ```
+5. (Recomendado) Elimina el Node de Homebrew para que no vuelva a competir:
+   ```bash
+   brew uninstall node
+   ```
+6. Verifica: `which node` debe mostrar una ruta con `.volta`, y `node -v` → `v24.20.0`.
+
+> Si tras recargar Homebrew sigue primero, probablemente Homebrew se define en un archivo que zsh carga **después** del tuyo (p. ej. Volta en `~/.zshrc` pero `brew shellenv` en `~/.zprofile`). Pon las dos líneas de Volta al final de **ese mismo** archivo donde esté `brew shellenv`.
+
+> **Regla de oro:** elige **un solo** gestor de Node (aquí, Volta). No instales Node por otras vías (ni Homebrew, ni nvm, ni nodejs.org). Así el campo `volta` del `package.json` siempre manda.
 
 ### Nota sobre pnpm
 
@@ -282,8 +308,10 @@ Significa que **otra fuente está proveyendo Node**, no Volta. Diagnostícalo:
 which node
 ```
 
-- Si la ruta contiene `pnpm` (`AppData\Local\pnpm\bin`), `nvm` o `nodejs` → esa herramienta está ganándole a Volta en el PATH. Ese es el motivo exacto de ver la versión equivocada.
-- **Solución:** asegúrate de que Volta esté activo (`volta --version`), deja de usar esa otra fuente para Node (si es pnpm, no uses `pnpm env use`; si es nvm, desactívalo para este proyecto), **reinicia la terminal** y verifica que `(Get-Command node).Source` ahora apunte a una ruta con `Volta`. Recuerda estar **dentro** de la carpeta del proyecto (Volta aplica la versión por carpeta, leyendo el `package.json`).
+- Si la ruta contiene `pnpm` (`AppData\Local\pnpm\bin`), `homebrew` (`/opt/homebrew/bin`), `nvm` o `nodejs` → esa herramienta está ganándole a Volta en el PATH. Ese es el motivo exacto de ver la versión equivocada.
+- **Solución (Windows):** asegúrate de que Volta esté activo (`volta --version`), no uses otra fuente para Node (si es pnpm, no uses `pnpm env use`), **reinicia la terminal** y verifica que `(Get-Command node).Source` apunte a una ruta con `Volta`.
+- **Solución (macOS/Homebrew):** pon `export PATH="$VOLTA_HOME/bin:$PATH"` al final de tu `~/.zshrc`, ejecuta `brew uninstall node`, recarga con `source ~/.zshrc` y verifica con `which node` (debe mostrar `.volta`). Ver detalle en [Paso 2 → macOS (Homebrew)](#evita-el-conflicto-con-otros-gestores-de-versiones-de-node).
+- En todos los casos: recuerda estar **dentro** de la carpeta del proyecto (Volta aplica la versión por carpeta, leyendo el `package.json`).
 
 **El `pnpm install` falla con un error de `engines` / versión incompatible.**
 Es la red de seguridad (`engine-strict`). Tu Node o pnpm no está en el rango permitido (Node `^24`, pnpm `^12`). Soluciónalo dejando que Volta gestione las versiones: con Volta instalado, entra a la carpeta y vuelve a intentar.
