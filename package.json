@@ -1,7 +1,13 @@
 {
-  "name": "cashcore",
-  "version": "0.1.0",
+  "name": "Cashcore",
+  "version": "1.0.0",
   "private": true,
+  "engines": {
+    "//node":"Ultima version LTS al momento de configurar 16/10/2026",
+    "node": "24.22.0",  
+    "pnpm": "11.28.6"
+  },
+  "packageManager": "pnpm@11.28.6",
   "scripts": {
     "dev": "next dev --turbopack --port 3001",
     "build": "next build",
