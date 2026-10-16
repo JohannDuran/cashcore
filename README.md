@@ -298,6 +298,45 @@ pnpm start
 **`volta` no se reconoce / command not found, aunque ya lo instalé.**
 Casi siempre es una **terminal vieja**: la abriste antes de instalar Volta y no ve el PATH actualizado. Cierra **TODAS** las terminales **y el editor completo** (VS Code entero), reábrelo y prueba de nuevo. En Windows, si persiste, cierra sesión de Windows o reinicia. Confirma que Volta esté en disco (debería estar en `C:\Program Files\Volta\` o `%LOCALAPPDATA%\Volta`).
 
+**macOS/Linux (zsh): `volta` funciona pero `node -v` muestra la versión equivocada o "command not found".**
+Volta está instalado, pero no está en el PATH de tu shell. Esto pasa frecuentemente en **zsh** porque Volta agrega sus líneas a `~/.bash_profile` o `~/.profile`, pero zsh usa `~/.zshrc`.
+
+**Solución paso a paso:**
+
+1. Verifica que Volta esté instalado:
+   ```bash
+   ls ~/.volta/bin
+   ```
+   Deberías ver archivos como `node`, `npm`, `pnpm`, `volta`.
+
+2. Revisa si Volta ya está en tu `.zshrc`:
+   ```bash
+   grep -n "VOLTA" ~/.zshrc
+   ```
+   Si no muestra nada, Volta no está configurado en zsh.
+
+3. Agrega Volta al final de tu `~/.zshrc`:
+   ```bash
+   echo '' >> ~/.zshrc
+   echo '# Volta - Node/pnpm version manager' >> ~/.zshrc
+   echo 'export VOLTA_HOME="$HOME/.volta"' >> ~/.zshrc
+   echo 'export PATH="$VOLTA_HOME/bin:$PATH"' >> ~/.zshrc
+   ```
+
+4. Recarga tu shell:
+   ```bash
+   source ~/.zshrc
+   ```
+
+5. Verifica que funciona:
+   ```bash
+   which node    # debe mostrar: /Users/tu-usuario/.volta/bin/node
+   node -v       # debe mostrar: v24.20.0
+   volta -v      # debe mostrar la versión de Volta
+   ```
+
+> **Importante:** Las líneas de Volta deben estar **al final** del `.zshrc` para que tengan prioridad sobre otros gestores (nvm, Homebrew, etc.).
+
 **`node -v` muestra una versión distinta a la fijada en `volta` del `package.json` (p. ej. ves 24.22.0 en vez de 24.20.0).**
 Significa que **otra fuente está proveyendo Node**, no Volta. Diagnostícalo:
 
