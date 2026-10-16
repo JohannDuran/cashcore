@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { currencies } from "@/lib/constants";
+import { COMMON_TIMEZONES, getBrowserTimezone, getTimezoneFromCurrency } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { Sun, Moon, Monitor, Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -84,7 +85,7 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Preferencias</CardTitle>
-            <CardDescription>Moneda y apariencia</CardDescription>
+            <CardDescription>Moneda, zona horaria y apariencia</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div>
@@ -104,6 +105,33 @@ export default function SettingsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Zona horaria</Label>
+              <Select
+                value={user.timezone || ""}
+                onValueChange={(v) => updateUser({ timezone: v || null })}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={`Automático (${getBrowserTimezone()})`} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">
+                    Automático ({getBrowserTimezone()})
+                  </SelectItem>
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {user.timezone 
+                  ? `Usando: ${user.timezone}` 
+                  : `Se usará la del navegador o la de la moneda (${getTimezoneFromCurrency(user.defaultCurrency)})`
+                }
+              </p>
             </div>
             <div>
               <Label>Tema</Label>

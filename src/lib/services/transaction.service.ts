@@ -61,13 +61,16 @@ export const transactionService = {
 
     return prisma.$transaction(async (tx) => {
       // El frontend envía walletId que puede ser un ID de Wallet o Debt
-      const sourceId = clean.walletId as string | null;
+      // El origen puede venir como walletId (wallet o debt) o directamente como debtId
+      const sourceId = (clean.walletId as string | null | undefined)
+        ?? (clean.debtId as string | null | undefined)
+        ?? null;
       // transferToWalletId puede contener un wallet o debt ID, o transferToDebtId puede tener el debt ID directamente
       const transferToId = (clean.transferToDebtId as string | null | undefined) 
         ?? (clean.transferToWalletId as string | null | undefined);
       
       await assertTransactionReferences(tx, userId, {
-        walletId: sourceId!,
+        walletId: sourceId,
         transferToWalletId: transferToId,
         categoryId: clean.categoryId as string,
         tagIds,
@@ -100,6 +103,7 @@ export const transactionService = {
       // Preparar los datos para crear, removiendo los campos originales y agregando los correctos
       const createData = { ...clean };
       delete createData.walletId;
+      delete createData.debtId;
       delete createData.transferToWalletId;
 
       const transaction = await tx.transaction.create({
@@ -129,8 +133,10 @@ export const transactionService = {
         where: { id: transactionId, userId },
       });
 
-      // El frontend envía walletId que puede ser un ID de Wallet o Debt
-      const sourceId = (clean.walletId as string | null | undefined) ?? oldTransaction.walletId ?? oldTransaction.debtId;
+      // El frontend envía el origen como walletId (wallet o debt) o directamente como debtId
+      const sourceId = (clean.walletId as string | null | undefined)
+        ?? (clean.debtId as string | null | undefined)
+        ?? oldTransaction.walletId ?? oldTransaction.debtId;
       // transferToWalletId puede contener un wallet o debt ID, o transferToDebtId puede tener el debt ID directamente
       const transferToId = (clean.transferToDebtId as string | null | undefined) 
         ?? (clean.transferToWalletId !== undefined
@@ -138,7 +144,7 @@ export const transactionService = {
           : oldTransaction.transferToWalletId ?? oldTransaction.transferToDebtId);
 
       await assertTransactionReferences(tx, userId, {
-        walletId: sourceId!,
+        walletId: sourceId,
         transferToWalletId: transferToId,
         categoryId: (clean.categoryId as string) ?? oldTransaction.categoryId,
         tagIds: tagIdsProvided ? tagIds : undefined,
@@ -173,6 +179,7 @@ export const transactionService = {
       // Preparar los datos para actualizar
       const updateData = { ...clean };
       delete updateData.walletId;
+      delete updateData.debtId;
       delete updateData.transferToWalletId;
 
       const transaction = await tx.transaction.update({

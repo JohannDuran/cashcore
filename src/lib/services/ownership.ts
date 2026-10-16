@@ -78,14 +78,16 @@ export async function assertTransactionReferences(
   db: Db,
   userId: string,
   refs: {
-    walletId: string;
+    walletId?: string | null;
     transferToWalletId?: string | null;
     categoryId: string;
     tagIds?: readonly string[];
   }
 ): Promise<void> {
-  // walletId puede ser Wallet o Debt
-  await assertWalletOrDebtOwnership(db, userId, refs.walletId);
+  // walletId puede ser Wallet o Debt (o null si el origen se especifica de otra forma)
+  if (refs.walletId) {
+    await assertWalletOrDebtOwnership(db, userId, refs.walletId);
+  }
 
   // transferToWalletId también puede ser Wallet o Debt
   if (refs.transferToWalletId) {

@@ -8,6 +8,7 @@ import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,19 +28,54 @@ import {
 import { toast } from "sonner";
 import { useState, useMemo } from "react";
 import type { Debt } from "@/types";
+import { updateDebtAction } from "@/app/actions/debt.actions";
+
+/**
+ * Calcula el último día de corte que ya ocurrió (o es hoy) a partir del día de corte.
+ * Devuelve la fecha en formato YYYY-MM-DD, o null si la deuda no tiene día de corte.
+ */
+function getLastStatementCutoff(statementDay?: number | null): string | null {
+  if (!statementDay) return null;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const cutoffFor = (year: number, month: number): Date => {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    return new Date(year, month, Math.min(statementDay, lastDay));
+  };
+
+  let last = cutoffFor(today.getFullYear(), today.getMonth());
+  if (last > today) {
+    last = cutoffFor(today.getFullYear(), today.getMonth() - 1);
+  }
+
+  const y = last.getFullYear();
+  const m = String(last.getMonth() + 1).padStart(2, "0");
+  const d = String(last.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 export default function DebtsPage() {
-  const { debts, transactions, setActiveModal, setEditingItem, deleteDebt } = useCashCoreStore();
+  const { debts, transactions, setActiveModal, setEditingItem, deleteDebt, updateDebt } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Debt | null>(null);
   const [paymentDebt, setPaymentDebt] = useState<Debt | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [accruedEditDebt, setAccruedEditDebt] = useState<Debt | null>(null);
+  const [accruedEditValue, setAccruedEditValue] = useState("");
 
   const activeDebts = debts.filter((d) => d.isActive && d.currentBalance > 0);
   const paidDebts = debts.filter((d) => !d.isActive || d.currentBalance <= 0);
 
-  // Filtrar transacciones de transferencia a deudas para el cálculo de pago mínimo restante
+  // Transacciones relevantes para el cálculo del pago mínimo restante por ciclo:
+  // - Abonos: transferencias a la deuda (type "transfer" con transferToDebtId)
+  // - Compras: gastos cargados a la tarjeta (type "expense" con debtId)
   const debtTransactions = useMemo(() => {
-    return transactions.filter((tx) => tx.type === "transfer" && tx.transferToDebtId);
+    return transactions.filter(
+      (tx) =>
+        (tx.type === "transfer" && tx.transferToDebtId) ||
+        (tx.type === "expense" && tx.debtId)
+    );
   }, [transactions]);
 
   // Totales
@@ -61,6 +97,58 @@ export default function DebtsPage() {
   function handlePay(debt: Debt) {
     setPaymentDebt(debt);
     setPaymentModalOpen(true);
+  }
+
+  function handleMarkStatementPaid(debt: Debt) {
+    const lastCutoff = getLastStatementCutoff(debt.statementDay);
+    if (!lastCutoff) return;
+
+    // Optimista + persistencia
+    updateDebt(debt.id, { statementPaidUntil: lastCutoff });
+    updateDebtAction(debt.id, { statementPaidUntil: lastCutoff }).then((res) => {
+      if (!res.success) toast.error("No se pudo marcar como pagado: " + res.error);
+      else toast.success("Pago del ciclo marcado como cubierto");
+    });
+  }
+
+  function handleEditAccruedNextCycle(debt: Debt) {
+    setAccruedEditDebt(debt);
+    setAccruedEditValue(debt.accruedNextCycleOverride?.toString() ?? "");
+  }
+
+  function handleSaveAccrued() {
+    if (!accruedEditDebt) return;
+    const value = accruedEditValue.trim() === "" ? null : parseFloat(accruedEditValue);
+    
+    // Si se establece un valor base, guardar también la fecha actual
+    // para que solo se sumen compras POSTERIORES a esta fecha
+    const updates: Partial<Debt> = { 
+      accruedNextCycleOverride: value,
+      accruedOverrideDate: value != null ? new Date().toISOString() : null
+    };
+    
+    updateDebt(accruedEditDebt.id, updates);
+    updateDebtAction(accruedEditDebt.id, updates).then((res) => {
+      if (!res.success) toast.error("No se pudo guardar: " + res.error);
+      else toast.success(value === null ? "Acumulado reseteado a cálculo automático" : "Acumulado actualizado");
+    });
+    setAccruedEditDebt(null);
+  }
+
+  function handleResetAccrued() {
+    if (!accruedEditDebt) return;
+    
+    const updates: Partial<Debt> = { 
+      accruedNextCycleOverride: null,
+      accruedOverrideDate: null 
+    };
+    
+    updateDebt(accruedEditDebt.id, updates);
+    updateDebtAction(accruedEditDebt.id, updates).then((res) => {
+      if (!res.success) toast.error("No se pudo resetear: " + res.error);
+      else toast.success("Acumulado reseteado a cálculo automático");
+    });
+    setAccruedEditDebt(null);
   }
 
   function handleDelete() {
@@ -162,6 +250,8 @@ export default function DebtsPage() {
                     transactions={debtTransactions}
                     onEdit={() => handleEdit(debt)}
                     onPay={() => handlePay(debt)}
+                    onMarkStatementPaid={() => handleMarkStatementPaid(debt)}
+                    onEditAccruedNextCycle={() => handleEditAccruedNextCycle(debt)}
                   />
                 ))}
               </div>
@@ -216,6 +306,42 @@ export default function DebtsPage() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Accrued Next Cycle */}
+      <AlertDialog open={!!accruedEditDebt} onOpenChange={(open) => !open && setAccruedEditDebt(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ajuste base del acumulado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Ingresa el monto base (deuda previa no registrada en la app) para &quot;{accruedEditDebt?.name}&quot;. 
+              Las compras que registres en la app se sumarán automáticamente a este valor.
+              Deja vacío o en 0 si no tienes deuda previa.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="Ej: 2678.71 (vacío = automático)"
+              value={accruedEditValue}
+              onChange={(e) => setAccruedEditValue(e.target.value)}
+              className="text-lg"
+            />
+          </div>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            {accruedEditDebt?.accruedNextCycleOverride != null && (
+              <Button variant="outline" onClick={handleResetAccrued} className="sm:mr-auto">
+                Resetear a automático
+              </Button>
+            )}
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveAccrued}>
+              Guardar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
