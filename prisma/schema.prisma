@@ -205,6 +205,7 @@ model Debt {
   statementDay      Int?      // Día de corte del estado de cuenta (1-31)
   paymentDueDay     Int?      // Día límite de pago (1-31)
   paymentDueMonthOffset Int   @default(0) // Meses después del corte que vence el pago (0=mismo mes, 1=mes siguiente, 2=dos meses)
+  monthlyPaymentEnabled Boolean @default(false) // Si true, el pago mínimo se trata como mensualidad por ciclo (baja con abonos del mes y se reinicia). Útil para préstamos.
   statementPaidUntil DateTime? // Fecha de corte hasta la cual el ciclo cerrado ya fue marcado como pagado
   accruedNextCycleOverride Float? // Ajuste base del acumulado próximo corte
   accruedOverrideDate      DateTime? // Fecha en que se configuró el ajuste (solo sumar compras posteriores)

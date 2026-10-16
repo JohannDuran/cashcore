@@ -176,6 +176,7 @@ export interface Debt {
   statementDay?: number | null;
   paymentDueDay?: number | null;
   paymentDueMonthOffset?: number; // 0=mismo mes, 1=mes siguiente, 2=dos meses después del corte
+  monthlyPaymentEnabled?: boolean; // pago mínimo tratado como mensualidad por ciclo (préstamos)
   statementPaidUntil?: string | null;
   accruedNextCycleOverride?: number | null;
   accruedOverrideDate?: string | null;

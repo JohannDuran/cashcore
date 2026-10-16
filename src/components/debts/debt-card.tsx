@@ -9,7 +9,7 @@ import { IconRenderer } from "@/components/shared/icon-renderer";
 import { debtTypeLabels } from "@/lib/constants";
 import type { Debt, Transaction } from "@/types";
 import { Edit, Banknote, Calendar, AlertCircle, CheckCircle2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 // ══════════════════════════════════════════════════════════════════════════════
 // UTILIDADES PARA CÁLCULO DE CICLOS DE TARJETAS DE CRÉDITO
@@ -507,6 +507,31 @@ export function DebtCard({
   
   const requiredPaymentCompleted = requiredThisCycle !== null && requiredThisCycle === 0;
   
+  // ── Pago mínimo mensual por ciclo (préstamos con monthlyPaymentEnabled) ──
+  // El pago mínimo se trata como una mensualidad: se resta lo abonado DENTRO del ciclo
+  // mensual actual (delimitado por paymentDueDay) y se reinicia cada mes.
+  let monthlyPaymentRemaining: number | null = null;
+  const hasMonthlyPaymentCycle =
+    !!debt.monthlyPaymentEnabled && !!debt.minimumPayment && !!debt.paymentDueDay && !hasStatementConfig;
+
+  if (hasMonthlyPaymentCycle) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDay = debt.paymentDueDay!;
+
+    // Inicio del ciclo mensual actual = última ocurrencia del día de pago (hoy o antes).
+    let cycleStart = dateForDay(today.getFullYear(), today.getMonth(), dueDay);
+    if (cycleStart > today) {
+      cycleStart = dateForDay(today.getFullYear(), today.getMonth() - 1, dueDay);
+    }
+    const cycleEnd = dateForDay(cycleStart.getFullYear(), cycleStart.getMonth() + 1, dueDay);
+
+    // Abonos (transferencias a esta deuda) dentro del ciclo mensual actual.
+    const paidThisCycle = sumTransactionsInRange(debt, transactions, "payment", cycleStart, cycleEnd);
+
+    monthlyPaymentRemaining = Math.max(0, debt.minimumPayment! - paidThisCycle);
+  }
+
   // Calcular fecha de pago y estado
   const nextPaymentDate = getNextPaymentDate(debt);
   const paymentStatus = getPaymentStatus(nextPaymentDate);
@@ -673,8 +698,29 @@ export function DebtCard({
                 </div>
               )}
 
-              {/* Fallback: Pago mínimo (sin configuración de ciclos) */}
-              {!hasStatementConfig && debt.minimumPayment && (
+              {/* Pago mínimo mensual por ciclo (préstamos): baja con los abonos del mes */}
+              {hasMonthlyPaymentCycle && monthlyPaymentRemaining !== null && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {monthlyPaymentRemaining === 0 ? "Pago del mes cubierto ✓" : "Pago mínimo este mes"}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {monthlyPaymentRemaining === 0 && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
+                    <CurrencyDisplay
+                      amount={monthlyPaymentRemaining}
+                      currency={debt.currency}
+                      size="sm"
+                      className={cn("font-medium", monthlyPaymentRemaining === 0 && "text-emerald-600")}
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">
+                    de {formatCurrency(debt.minimumPayment!, debt.currency)} mensual
+                  </p>
+                </div>
+              )}
+
+              {/* Fallback: Pago mínimo fijo (sin ciclos ni corte) */}
+              {!hasStatementConfig && !hasMonthlyPaymentCycle && debt.minimumPayment && (
                 <div>
                   <p className="text-[10px] text-muted-foreground">Pago mínimo</p>
                   <CurrencyDisplay

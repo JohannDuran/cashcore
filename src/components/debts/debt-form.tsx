@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -139,6 +140,7 @@ export function DebtFormModal() {
   const [statementDay, setStatementDay] = useState("");
   const [paymentDueDay, setPaymentDueDay] = useState("");
   const [paymentDueMonthOffset, setPaymentDueMonthOffset] = useState("0");
+  const [monthlyPaymentEnabled, setMonthlyPaymentEnabled] = useState(false);
   const [nextPaymentDate, setNextPaymentDate] = useState("");
   // Indica si el usuario editó manualmente la próxima fecha límite de pago.
   // Mientras sea false, la fecha se autocalcula desde el día límite de pago.
@@ -161,6 +163,7 @@ export function DebtFormModal() {
     setStatementDay("");
     setPaymentDueDay("");
     setPaymentDueMonthOffset("0");
+    setMonthlyPaymentEnabled(false);
     setNextPaymentDate("");
     setNextPaymentDateManual(false);
     setStartDate(new Date().toISOString().split("T")[0]);
@@ -182,6 +185,7 @@ export function DebtFormModal() {
       setStatementDay(editDebt.statementDay?.toString() || "");
       setPaymentDueDay(editDebt.paymentDueDay?.toString() || "");
       setPaymentDueMonthOffset((editDebt.paymentDueMonthOffset ?? 0).toString());
+      setMonthlyPaymentEnabled(editDebt.monthlyPaymentEnabled ?? false);
       const existingNextDate = toDateInputValue(editDebt.nextPaymentDate);
       setNextPaymentDate(existingNextDate);
       // Si ya hay una fecha guardada, se respeta como manual (no se autocalcula al editar)
@@ -268,6 +272,7 @@ export function DebtFormModal() {
       statementDay: parsedStatementDay,
       paymentDueDay: parsedPaymentDueDay,
       paymentDueMonthOffset: parseInt(paymentDueMonthOffset, 10) || 0,
+      monthlyPaymentEnabled,
       nextPaymentDate: nextPaymentDate || null,
       startDate,
       endDate: endDate || null,
@@ -467,6 +472,28 @@ export function DebtFormModal() {
               Día del mes en que vence el pago del estado de cuenta
             </p>
           </div>
+
+          {/* Pago mínimo mensual por ciclo — para préstamos/créditos (no tarjetas con corte) */}
+          {type !== "credit_card" && type !== "department_store" && (
+            <div className="space-y-3 p-3 bg-muted/50 rounded-xl border border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="cursor-pointer" onClick={() => setMonthlyPaymentEnabled(!monthlyPaymentEnabled)}>
+                    Pago mínimo mensual por ciclo
+                  </Label>
+                  <p className="text-xs text-muted-foreground leading-tight">
+                    El pago mínimo se trata como una mensualidad: disminuye con tus abonos del mes y se reinicia cada ciclo.
+                  </p>
+                </div>
+                <Switch checked={monthlyPaymentEnabled} onCheckedChange={setMonthlyPaymentEnabled} />
+              </div>
+              {monthlyPaymentEnabled && (!minimumPayment || !paymentDueDay) && (
+                <p className="text-[11px] text-amber-500">
+                  Para que funcione, configura un <strong>Pago mínimo</strong> y un <strong>Día límite de pago</strong>.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Mes de vencimiento del pago (offset) */}
           {(type === "credit_card" || type === "department_store") && statementDay && paymentDueDay && (
