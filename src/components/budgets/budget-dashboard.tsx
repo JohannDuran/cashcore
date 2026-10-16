@@ -92,6 +92,35 @@ function getCategoryBreakdown(
     .sort((a, b) => b.spent - a.spent);
 }
 
+/** Día de calendario (YYYY-MM-DD) de una fecha, evitando el desfase por zona horaria. */
+function calendarDay(value: string | Date): string {
+  if (typeof value === "string") {
+    const m = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+    const d = new Date(value);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  }
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Suma lo gastado HOY en las categorías/cuentas de un presupuesto. */
+function getSpentToday(budget: Budget, transactions: Transaction[]): number {
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  return transactions
+    .filter(
+      (t) =>
+        t.type === "expense" &&
+        budget.categoryIds.includes(t.categoryId) &&
+        calendarDay(t.date) === todayStr &&
+        (budget.walletIds.length === 0 ||
+          (t.walletId && budget.walletIds.includes(t.walletId)) ||
+          (t.debtId && budget.walletIds.includes(t.debtId)))
+    )
+    .reduce((sum, t) => sum + t.amount, 0);
+}
+
 export function BudgetDashboard({ budgets, transactions, categories }: BudgetDashboardProps) {
   const budgetAnalytics = useMemo(() => {
     return budgets.map((budget) => {
@@ -102,6 +131,7 @@ export function BudgetDashboard({ budgets, transactions, categories }: BudgetDas
       const remaining = budget.amount - budget.spent;
       const dailySuggestion = remaining > 0 ? remaining / daysRemaining : 0;
       const categoryBreakdown = getCategoryBreakdown(budget, transactions, categories);
+      const spentToday = getSpentToday(budget, transactions);
 
       return {
         budget,
@@ -110,6 +140,7 @@ export function BudgetDashboard({ budgets, transactions, categories }: BudgetDas
         remaining,
         dailySuggestion,
         categoryBreakdown,
+        spentToday,
       };
     });
   }, [budgets, transactions, categories]);
@@ -118,7 +149,7 @@ export function BudgetDashboard({ budgets, transactions, categories }: BudgetDas
 
   return (
     <div className="space-y-6">
-      {budgetAnalytics.map(({ budget, endDate, daysRemaining, remaining, dailySuggestion, categoryBreakdown }) => {
+      {budgetAnalytics.map(({ budget, endDate, daysRemaining, remaining, dailySuggestion, categoryBreakdown, spentToday }) => {
         const percentage = budget.amount > 0 ? Math.round((budget.spent / budget.amount) * 100) : 0;
         const isOverBudget = remaining < 0;
         const budgetCategories = budget.categoryIds
@@ -192,6 +223,30 @@ export function BudgetDashboard({ budgets, transactions, categories }: BudgetDas
                   <p className="text-[10px] text-muted-foreground mt-1">
                     Máximo por día para no pasarte
                   </p>
+                  {/* Gastado hoy, comparado contra el sugerido diario */}
+                  <div className="mt-2 pt-2 border-t border-border/60">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                      Gastado hoy
+                    </p>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <CurrencyDisplay
+                        amount={spentToday}
+                        size="sm"
+                        type={!isOverBudget && dailySuggestion > 0 && spentToday > dailySuggestion ? "expense" : "neutral"}
+                        className="font-semibold"
+                      />
+                      {!isOverBudget && dailySuggestion > 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          / {formatCurrency(dailySuggestion)}
+                        </span>
+                      )}
+                    </div>
+                    {!isOverBudget && dailySuggestion > 0 && spentToday > dailySuggestion && (
+                      <p className="text-[10px] text-expense mt-0.5">
+                        Superaste el sugerido de hoy
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-muted/50 rounded-lg p-3">
