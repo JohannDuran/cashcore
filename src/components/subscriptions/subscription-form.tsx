@@ -31,7 +31,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -64,6 +66,7 @@ export function SubscriptionFormModal() {
     deleteSubscription,
     categories,
     wallets,
+    debts,
     user 
   } = useCashCoreStore();
 
@@ -84,11 +87,20 @@ export function SubscriptionFormModal() {
   const [color, setColor] = useState("#EF4444");
   const [platformId, setPlatformId] = useState<string | undefined>(undefined);
   const [isDomiciliado, setIsDomiciliado] = useState(false);
-  const [walletId, setWalletId] = useState<string | undefined>(undefined);
+  // "Cuenta de cargo": puede ser el id de una wallet O de una tarjeta (deuda).
+  const [chargeAccountId, setChargeAccountId] = useState<string | undefined>(undefined);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Consider only expenses categories for subscriptions
   const expenseCategories = categories.filter((c) => c.type === "expense");
+
+  // Cuentas disponibles como cargo: wallets no archivadas + tarjetas de crédito/departamentales activas
+  const chargeWallets = wallets.filter((w) => !w.isArchived);
+  const chargeCards = debts.filter(
+    (d) => (d.type === "credit_card" || d.type === "department_store") && d.isActive
+  );
+  // Set para distinguir, al guardar, si el id seleccionado es wallet o deuda
+  const walletIdSet = new Set(chargeWallets.map((w) => w.id));
 
   const resetForm = useCallback(() => {
     setName("");
@@ -104,7 +116,7 @@ export function SubscriptionFormModal() {
     setColor("#EF4444");
     setPlatformId(undefined);
     setIsDomiciliado(false);
-    setWalletId(undefined);
+    setChargeAccountId(undefined);
   }, []);
 
   useEffect(() => {
@@ -121,7 +133,8 @@ export function SubscriptionFormModal() {
       setColor(editSub.color);
       setPlatformId(editSub.platformId ?? undefined);
       setIsDomiciliado(editSub.isDomiciliado ?? false);
-      setWalletId(editSub.walletId ?? undefined);
+      // La cuenta de cargo puede estar guardada como walletId o como debtId
+      setChargeAccountId(editSub.walletId ?? editSub.debtId ?? undefined);
     } else {
       resetForm();
     }
@@ -183,6 +196,13 @@ export function SubscriptionFormModal() {
 
     const optimisticId = isEditing && editSub ? editSub.id : generateId();
 
+    // Determinar si la cuenta de cargo seleccionada es wallet o tarjeta (deuda).
+    // Enviamos null explícito para desconectar el que no aplica (importante al editar).
+    const selected = isDomiciliado ? chargeAccountId : undefined;
+    const isWalletCharge = !!selected && walletIdSet.has(selected);
+    const chargeWalletId = isWalletCharge ? selected : null;
+    const chargeDebtId = selected && !isWalletCharge ? selected : null;
+
     const subData = {
       id: optimisticId,
       userId: user?.id || "",
@@ -197,7 +217,8 @@ export function SubscriptionFormModal() {
       color,
       isActive,
       isDomiciliado,
-      walletId: isDomiciliado && walletId ? walletId : undefined,
+      walletId: chargeWalletId,
+      debtId: chargeDebtId,
       notes: notes.trim() || undefined,
     };
 
@@ -377,22 +398,37 @@ export function SubscriptionFormModal() {
               </div>
               <Switch checked={isDomiciliado} onCheckedChange={(checked) => {
                 setIsDomiciliado(checked);
-                if (!checked) setWalletId(undefined);
+                if (!checked) setChargeAccountId(undefined);
               }} />
             </div>
             {isDomiciliado && (
               <div>
                 <Label>Cuenta de cargo</Label>
-                <Select value={walletId || ""} onValueChange={(v) => setWalletId(v || undefined)}>
+                <Select value={chargeAccountId || ""} onValueChange={(v) => setChargeAccountId(v || undefined)}>
                   <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Selecciona una wallet" />
+                    <SelectValue placeholder="Selecciona una cuenta o tarjeta" />
                   </SelectTrigger>
                   <SelectContent>
-                    {wallets.filter((w) => !w.isArchived).map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.name} ({w.currency})
-                      </SelectItem>
-                    ))}
+                    {chargeWallets.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Cuentas</SelectLabel>
+                        {chargeWallets.map((w) => (
+                          <SelectItem key={w.id} value={w.id}>
+                            {w.name} ({w.currency})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
+                    {chargeCards.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Tarjetas de crédito / departamentales</SelectLabel>
+                        {chargeCards.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name} ({d.currency})
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

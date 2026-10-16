@@ -204,7 +204,8 @@ export interface Subscription {
   color: string;
   isActive: boolean;
   isDomiciliado: boolean;
-  walletId?: string;
+  walletId?: string | null;
+  debtId?: string | null; // Cuenta de cargo cuando es una tarjeta de crédito/departamental
   notes?: string;
   createdAt: Date;
 }
