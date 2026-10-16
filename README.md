@@ -38,6 +38,8 @@ Además, el `.npmrc` fuerza instalaciones reproducibles:
 - `frozen-lockfile=true` → nadie puede instalar versiones distintas a las del `pnpm-lock.yaml`.
 - `save-exact=true` → las dependencias nuevas se fijan sin `^`.
 
+Y el script `preinstall` **bloquea npm y yarn** (`pnpm dlx only-allow pnpm`): si alguien intenta `npm install` o `yarn`, el proceso se detiene con un error. Así se evita generar lockfiles distintos por usar otro gestor.
+
 > **El único paso manual por máquina es instalar Volta una vez.** Node y pnpm los gestiona Volta solo a partir de ahí. No instales Node "a mano" desde nodejs.org: deja que Volta lo haga.
 
 ---
@@ -78,9 +80,14 @@ Alternativa (instalador manual): descarga el `.msi` desde [volta.sh](https://vol
 curl https://get.volta.sh | bash
 ```
 
-### Después de instalar (todas las plataformas)
+### Después de instalar (todas las plataformas) — PASO CRÍTICO
 
-**Cierra y vuelve a abrir la terminal** (en Windows, ciérrala por completo). Luego verifica:
+> ⚠️ **Reinicia el entorno por completo.** Volta agrega su carpeta al PATH, pero las terminales y editores **que ya estaban abiertos no ven ese cambio**. Este es el error nº 1 con Volta: instalas, pero `volta` "no se reconoce" o `node -v` sigue mostrando tu versión vieja, porque la terminal es anterior a la instalación.
+>
+> - **Cierra TODO:** todas las terminales **y** el editor completo (VS Code entero, no solo el panel de terminal).
+> - En Windows, si tras reabrir sigue sin reconocerse, **cierra sesión de Windows y vuelve a entrar** (o reinicia). El PATH de usuario se recarga ahí.
+
+Abre una terminal **nueva** y verifica:
 
 ```bash
 volta --version
@@ -90,19 +97,44 @@ Si imprime un número de versión, Volta quedó listo. Si dice "command not foun
 
 ---
 
-## 4. Paso 2 — Activar pnpm con Volta
+## 4. Paso 2 — Activar Volta y dejar que gestione Node/pnpm
 
-Volta gestiona pnpm, pero esta función debe habilitarse una vez por máquina:
+Ejecuta una vez por máquina (coloca los shims de Volta en el PATH):
 
 ```bash
 volta setup
 ```
 
-> Si más adelante al correr `pnpm` ves un aviso de que pnpm no está gestionado por Volta, ejecuta:
-> ```bash
-> volta install pnpm@12.14.0
-> ```
-> Normalmente **no hace falta**: al entrar al proyecto, Volta lee el campo `volta` del `package.json` y usa Node 24 + pnpm 12 automáticamente.
+Luego **cierra y reabre la terminal otra vez** para que tome efecto.
+
+### Evita el conflicto con otros gestores de versiones de Node
+
+Volta solo puede fijar la versión del proyecto si **es él quien provee `node`**. Si tienes otra fuente de Node delante en el PATH, verás una versión equivocada aunque Volta esté instalado. Las fuentes que suelen "ganarle" a Volta:
+
+- **pnpm gestionando Node** (binario en `AppData\Local\pnpm\bin\node.exe`). Ocurre si activaste `pnpm env use` o `manage-package-manager-versions`.
+- **nvm / nvm-windows**, o un Node instalado a mano desde nodejs.org.
+
+**Cómo saber quién provee tu Node:**
+
+```bash
+# Windows (PowerShell)
+(Get-Command node).Source
+# macOS / Linux
+which node
+```
+
+- Si la ruta contiene `Volta` → correcto, Volta manda. ✅
+- Si contiene `pnpm`, `nvm` o `nodejs` → esa fuente está ganando. Debes dejar de usarla para Node y asegurar que la carpeta de Volta quede **antes** en el PATH. En el caso de pnpm, revisa que no tengas Node gestionado por pnpm (`pnpm env` ) y reinicia la terminal.
+
+> **Regla de oro:** elige **un solo** gestor de Node (aquí, Volta). No instales Node por otras vías. Así el campo `volta` del `package.json` siempre manda.
+
+### Nota sobre pnpm
+
+Volta también gestiona pnpm. Normalmente **no hace falta nada**: al entrar al proyecto, Volta lee el campo `volta` del `package.json` y usa Node 24 + pnpm 12 automáticamente. Si al correr `pnpm` ves un aviso de que no está gestionado por Volta:
+
+```bash
+volta install pnpm@12.14.0
+```
 
 ---
 
@@ -178,7 +210,7 @@ pnpm install
 
 Qué ocurre durante el install:
 
-1. `preinstall` verifica que Volta esté presente y avisa si falta (no bloquea).
+1. `preinstall` bloquea npm/yarn (`only-allow pnpm`) y avisa si Volta falta (esto último no bloquea).
 2. pnpm instala **exactamente** las versiones del `pnpm-lock.yaml` (gracias a `frozen-lockfile`).
 3. `postinstall` ejecuta `prisma generate`, que crea el cliente de Prisma.
 
@@ -237,11 +269,21 @@ pnpm start
 
 ## 11. Solución de problemas
 
-**`volta` no se reconoce / command not found después de instalar.**
-Cierra **todas** las terminales y vuelve a abrir una nueva (en Windows a veces hay que cerrar sesión o reiniciar). Volta modifica el PATH y los procesos abiertos no lo ven hasta reiniciar.
+**`volta` no se reconoce / command not found, aunque ya lo instalé.**
+Casi siempre es una **terminal vieja**: la abriste antes de instalar Volta y no ve el PATH actualizado. Cierra **TODAS** las terminales **y el editor completo** (VS Code entero), reábrelo y prueba de nuevo. En Windows, si persiste, cierra sesión de Windows o reinicia. Confirma que Volta esté en disco (debería estar en `C:\Program Files\Volta\` o `%LOCALAPPDATA%\Volta`).
 
-**`node --version` no muestra v24.x dentro del proyecto.**
-Significa que Volta no está activo. Confirma `volta --version`; si falla, reinstala Volta ([Paso 1](#3-paso-1--instalar-volta)). Si funciona pero Node no cambia, asegúrate de estar **dentro** de la carpeta del proyecto (Volta aplica la versión por carpeta).
+**`node -v` muestra una versión distinta a la fijada en `volta` del `package.json` (p. ej. ves 24.22.0 en vez de 24.20.0).**
+Significa que **otra fuente está proveyendo Node**, no Volta. Diagnostícalo:
+
+```bash
+# Windows (PowerShell)
+(Get-Command node).Source
+# macOS / Linux
+which node
+```
+
+- Si la ruta contiene `pnpm` (`AppData\Local\pnpm\bin`), `nvm` o `nodejs` → esa herramienta está ganándole a Volta en el PATH. Ese es el motivo exacto de ver la versión equivocada.
+- **Solución:** asegúrate de que Volta esté activo (`volta --version`), deja de usar esa otra fuente para Node (si es pnpm, no uses `pnpm env use`; si es nvm, desactívalo para este proyecto), **reinicia la terminal** y verifica que `(Get-Command node).Source` ahora apunte a una ruta con `Volta`. Recuerda estar **dentro** de la carpeta del proyecto (Volta aplica la versión por carpeta, leyendo el `package.json`).
 
 **El `pnpm install` falla con un error de `engines` / versión incompatible.**
 Es la red de seguridad (`engine-strict`). Tu Node o pnpm no está en el rango permitido (Node `^24`, pnpm `^12`). Soluciónalo dejando que Volta gestione las versiones: con Volta instalado, entra a la carpeta y vuelve a intentar.
@@ -252,8 +294,8 @@ Activa el *Modo de desarrollador* (ver [Paso 1 → Windows](#windows)).
 **`prisma generate` o `db push` falla.**
 Revisa que `.env` exista y que `DATABASE_URL` / `DIRECT_URL` sean válidas. `db push` usa `DIRECT_URL`.
 
-**Mezclé npm/yarn por error y ahora hay conflictos.**
-Ejecuta `pnpm run clean` y luego `pnpm install`. Usa solo pnpm en adelante.
+**Intenté usar npm o yarn y me dio error.**
+Es intencional: el `preinstall` bloquea cualquier gestor que no sea pnpm (`only-allow pnpm`). Usa `pnpm` siempre. Si ya quedaron residuos de otro gestor (p. ej. un `package-lock.json`), ejecuta `pnpm run clean` y luego `pnpm install`.
 
 **`frozen-lockfile` bloquea el install tras cambiar dependencias.**
 Si modificaste `package.json` a propósito, actualiza el lockfile con:
