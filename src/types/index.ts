@@ -74,6 +74,7 @@ export interface Transaction {
   transferToDebtId?: string | null;
   transferToWallet?: Wallet;
   transferToDebt?: Debt;
+  externalRecipient?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

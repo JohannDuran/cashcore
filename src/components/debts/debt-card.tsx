@@ -211,22 +211,31 @@ function sumTransactionsInRange(
 function getNextPaymentDate(debt: Debt): Date | null {
   // Si tiene nextPaymentDate configurado manualmente, usarlo
   if (debt.nextPaymentDate) {
-    const val = debt.nextPaymentDate;
-    if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+    const val = debt.nextPaymentDate as unknown;
     
-    const str = String(val);
-    if (str.includes('T')) {
-      const datePart = str.split('T')[0];
-      const parts = datePart.split('-').map(Number);
-      if (parts.length === 3 && parts.every(n => !isNaN(n))) {
-        return new Date(parts[0], parts[1] - 1, parts[2]);
+    // Si ya es Date (puede venir así de Prisma/runtime)
+    if (val instanceof Date) {
+      return isNaN(val.getTime()) ? null : val;
+    }
+    
+    // Si es string
+    if (typeof val === 'string') {
+      // Formato ISO con hora: "2024-01-15T00:00:00.000Z"
+      if (val.includes('T')) {
+        const datePart = val.split('T')[0];
+        const parts = datePart.split('-').map(Number);
+        if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+          return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+      }
+      // Formato solo fecha: "2024-01-15"
+      if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+        const [year, month, day] = val.split('-').map(Number);
+        return new Date(year, month - 1, day);
       }
     }
-    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-      const [year, month, day] = str.split('-').map(Number);
-      return new Date(year, month - 1, day);
-    }
-    const parsed = new Date(str);
+    // Fallback for Date objects or other valid date values
+    const parsed = new Date(val as string | number | Date);
     return isNaN(parsed.getTime()) ? null : parsed;
   }
   

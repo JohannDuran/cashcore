@@ -97,6 +97,7 @@ model Transaction {
   recurringEndDate   DateTime? @db.Date
   transferToWalletId String?
   transferToDebtId   String?   // Para transferencias hacia deudas (pagos)
+  externalRecipient  String?   // Para transferencias a terceros (nombre libre del destinatario)
   debtEffect         String?   // 'charge' | 'payment' - efecto sobre la deuda
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
