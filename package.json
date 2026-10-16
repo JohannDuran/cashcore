@@ -20,7 +20,7 @@
     "preinstall": "pnpm dlx only-allow pnpm && node -e \"try{require('child_process').execSync('volta --version',{stdio:'ignore'})}catch(e){console.warn('\\n[aviso] Volta no esta instalado. Para usar la version de Node/pnpm fijada en este proyecto instala Volta una vez: https://volta.sh  (en Windows: winget install Volta.Volta). Sin Volta debes tener Node 24.x y pnpm 12.x manualmente.\\n')}\"",
     "postinstall": "prisma generate",
     "db:push": "prisma generate && prisma db push",
-    "restart": "pnpm run clean && pnpm install && pnpm run dev"
+    "restart": "pnpm run clean && pnpm install && pnpm run build && pnpm run dev"
   },
   "prisma": {
     "seed": "pnpm exec tsx prisma/seed.ts"

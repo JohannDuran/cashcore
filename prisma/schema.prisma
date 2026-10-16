@@ -98,14 +98,18 @@ model Transaction {
   transferToWalletId String?
   transferToDebtId   String?   // Para transferencias hacia deudas (pagos)
   externalRecipient  String?   // Para transferencias a terceros (nombre libre del destinatario)
+  walletName         String?   // Nombre de la cuenta origen, preservado si la wallet se elimina
+  transferToWalletName String? // Nombre de la cuenta destino, preservado si la wallet destino se elimina
   debtEffect         String?   // 'charge' | 'payment' - efecto sobre la deuda
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  wallet           Wallet?  @relation("WalletTransactions", fields: [walletId], references: [id], onDelete: Cascade)
+  // SetNull: al borrar una wallet, las transacciones NO se eliminan; su walletId queda null
+  // y el nombre se conserva en walletName/transferToWalletName (ver walletService.deleteWallet).
+  wallet           Wallet?  @relation("WalletTransactions", fields: [walletId], references: [id], onDelete: SetNull)
   debt             Debt?    @relation("DebtTransactions", fields: [debtId], references: [id], onDelete: Cascade)
-  transferToWallet Wallet?  @relation("TransferToWallet", fields: [transferToWalletId], references: [id])
+  transferToWallet Wallet?  @relation("TransferToWallet", fields: [transferToWalletId], references: [id], onDelete: SetNull)
   transferToDebt   Debt?    @relation("TransferToDebt", fields: [transferToDebtId], references: [id])
   category         Category @relation(fields: [categoryId], references: [id])
   tags             Tag[]    @relation("TransactionTags")

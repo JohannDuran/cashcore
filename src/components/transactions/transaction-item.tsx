@@ -63,7 +63,7 @@ export function TransactionItem({ transaction, category, sourceAccount, transfer
                     {transferToAccount.name}
                   </>
                 ) : (
-                  "?"
+                  transaction.transferToWalletName || transaction.externalRecipient || "Cuenta eliminada"
                 )}
               </span>
             </>

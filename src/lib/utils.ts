@@ -131,7 +131,14 @@ export function calculateInterestProjection(
   now: Date = new Date()
 ): InterestProjection {
   const msPerDay = 1000 * 60 * 60 * 24;
-  const daysElapsed = Math.max(0, Math.floor((now.getTime() - startDate.getTime()) / msPerDay));
+  // Contar por DÍA DE CALENDARIO, no por 24h exactas: normalizamos ambas fechas
+  // a medianoche local (00:00). Así, al cambiar de día ya cuenta +1 aunque no
+  // hayan transcurrido 24h desde la hora exacta en que se activó el interés.
+  const startMidnight = new Date(startDate);
+  startMidnight.setHours(0, 0, 0, 0);
+  const nowMidnight = new Date(now);
+  nowMidnight.setHours(0, 0, 0, 0);
+  const daysElapsed = Math.max(0, Math.round((nowMidnight.getTime() - startMidnight.getTime()) / msPerDay));
 
   if (daysElapsed === 0 || annualRate === 0) {
     return {

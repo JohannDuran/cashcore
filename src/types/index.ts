@@ -75,6 +75,8 @@ export interface Transaction {
   transferToWallet?: Wallet;
   transferToDebt?: Debt;
   externalRecipient?: string | null;
+  walletName?: string | null;           // Nombre de origen preservado si la wallet fue eliminada
+  transferToWalletName?: string | null; // Nombre de destino preservado si la wallet destino fue eliminada
   createdAt: Date;
   updatedAt: Date;
 }
