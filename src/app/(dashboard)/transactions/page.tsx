@@ -23,6 +23,11 @@ import type { TransactionType } from "@/types";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+/** Formatea una Date a "YYYY-MM-DD" usando componentes LOCALES (para inputs type=date). */
+function toInputDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function TransactionsPage() {
   const { transactions, wallets, categories, debts, setActiveModal, editingItem, deleteTransaction, setEditingItem } =
     useCashCoreStore();
@@ -31,6 +36,13 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<TransactionType | "all">("all");
   const [walletFilter, setWalletFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  // Rango por defecto: desde hace un mes hasta hoy (formato "YYYY-MM-DD" local).
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return toInputDate(d);
+  });
+  const [dateTo, setDateTo] = useState(() => toInputDate(new Date()));
 
   // Diagnóstico: detecta transacciones con fecha inválida en el store original
   useEffect(() => {
@@ -42,6 +54,19 @@ export default function TransactionsPage() {
     }
   }, [transactions]);
 
+  // Devuelve el día de calendario (YYYY-MM-DD) real de una fecha de transacción.
+  // Las fechas vienen como @db.Date (medianoche UTC), así que tomamos la parte de fecha
+  // directamente para no correr el día por zona horaria (bug recurrente ya corregido).
+  function txCalendarDay(value: string | Date): string {
+    if (typeof value === "string") {
+      const m = value.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (m) return m[1];
+      const d = new Date(value);
+      return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    }
+    return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+  }
+
   // Filtrado + sanitización de fechas
   const filtered = useMemo(() => {
     return transactions
@@ -50,6 +75,12 @@ export default function TransactionsPage() {
         // Filtrar por walletId o debtId
         if (walletFilter !== "all" && tx.walletId !== walletFilter && tx.debtId !== walletFilter) return false;
         if (categoryFilter !== "all" && tx.categoryId !== categoryFilter) return false;
+        // Filtro por rango de fechas (comparación por día de calendario, inclusivo)
+        if (dateFrom || dateTo) {
+          const day = txCalendarDay(tx.date);
+          if (dateFrom && day < dateFrom) return false;
+          if (dateTo && day > dateTo) return false;
+        }
         if (search) {
           const q = search.toLowerCase();
           if (
@@ -68,7 +99,7 @@ export default function TransactionsPage() {
           ? new Date(tx.date).toISOString() 
           : new Date().toISOString()
       }));
-  }, [transactions, typeFilter, walletFilter, categoryFilter, search]);
+  }, [transactions, typeFilter, walletFilter, categoryFilter, search, dateFrom, dateTo]);
 
   const summary = useMemo(() => {
     const income = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
@@ -108,6 +139,10 @@ export default function TransactionsPage() {
         onWalletChange={setWalletFilter}
         categoryFilter={categoryFilter}
         onCategoryChange={setCategoryFilter}
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
         wallets={wallets}
         categories={categories}
       />

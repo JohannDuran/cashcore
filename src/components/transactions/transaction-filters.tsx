@@ -8,9 +8,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import type { TransactionType, Wallet, Category } from "@/types";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 
 interface TransactionFiltersProps {
   search: string;
@@ -21,6 +23,10 @@ interface TransactionFiltersProps {
   onWalletChange: (v: string) => void;
   categoryFilter: string;
   onCategoryChange: (v: string) => void;
+  dateFrom: string;
+  onDateFromChange: (v: string) => void;
+  dateTo: string;
+  onDateToChange: (v: string) => void;
   wallets: Wallet[];
   categories: Category[];
 }
@@ -37,8 +43,11 @@ export function TransactionFilters({
   typeFilter, onTypeChange,
   walletFilter, onWalletChange,
   categoryFilter, onCategoryChange,
+  dateFrom, onDateFromChange,
+  dateTo, onDateToChange,
   wallets, categories,
 }: TransactionFiltersProps) {
+  const hasDateFilter = !!dateFrom || !!dateTo;
   return (
     <div className="space-y-3">
       {/* Type filter tabs */}
@@ -99,6 +108,44 @@ export function TransactionFilters({
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Date range filter */}
+      <div className="flex flex-col sm:flex-row sm:items-end gap-2">
+        <div className="flex-1">
+          <Label htmlFor="date-from" className="text-xs text-muted-foreground">Desde</Label>
+          <Input
+            id="date-from"
+            type="date"
+            value={dateFrom}
+            max={dateTo}
+            onChange={(e) => onDateFromChange(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <div className="flex-1">
+          <Label htmlFor="date-to" className="text-xs text-muted-foreground">Hasta</Label>
+          <Input
+            id="date-to"
+            type="date"
+            value={dateTo}
+            min={dateFrom}
+            onChange={(e) => onDateToChange(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        {hasDateFilter && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => { onDateFromChange(""); onDateToChange(""); }}
+            className="gap-1 text-muted-foreground shrink-0"
+          >
+            <X className="w-3.5 h-3.5" />
+            Limpiar fechas
+          </Button>
+        )}
       </div>
     </div>
   );
