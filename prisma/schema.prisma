@@ -100,6 +100,7 @@ model Transaction {
   externalRecipient  String?   // Para transferencias a terceros (nombre libre del destinatario)
   walletName         String?   // Nombre de la cuenta origen, preservado si la wallet se elimina
   transferToWalletName String? // Nombre de la cuenta destino, preservado si la wallet destino se elimina
+  msiMonths          Int?      // Meses sin intereses de una compra con tarjeta (null o 1 = pago único)
   debtEffect         String?   // 'charge' | 'payment' - efecto sobre la deuda
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt

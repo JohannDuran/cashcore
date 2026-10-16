@@ -175,7 +175,68 @@ function calculateBillingCycles(
 }
 
 /**
- * Suma el monto de transacciones dentro de un rango de fechas [start, end] (inclusivo).
+ * Cuenta cuántos cortes de estado de cuenta (en `statementDay`) separan la fecha de
+ * compra del fin de un ciclo (`cutEnd`, que es un día de corte).
+ *
+ * El índice 0 corresponde al PRIMER corte que ocurre justo después de la compra
+ * (el ciclo en el que cae la compra). Para una compra a MSI, los pagos vigentes son
+ * los índices 0..(msiMonths-1).
+ *
+ * Devuelve -1 si el corte es anterior a la compra (no aplica todavía).
+ */
+function installmentIndexForCut(purchaseDate: Date, cutEnd: Date, statementDay: number): number {
+  const p = toCalendarDate(purchaseDate);
+  const cut = toCalendarDate(cutEnd);
+  if (cut < p) return -1;
+
+  // El primer corte posterior (o igual) a la compra = índice 0.
+  let firstCut = dateForDay(p.getFullYear(), p.getMonth(), statementDay);
+  if (firstCut < p) {
+    // El corte de este mes ya pasó respecto a la compra → el siguiente mes
+    firstCut = dateForDay(p.getFullYear(), p.getMonth() + 1, statementDay);
+  }
+  firstCut = toCalendarDate(firstCut);
+
+  if (cut < firstCut) return -1;
+
+  // Contar meses de corte entre firstCut y cut (ambos caen en statementDay)
+  return (cut.getFullYear() - firstCut.getFullYear()) * 12 + (cut.getMonth() - firstCut.getMonth());
+}
+
+/**
+ * Monto con que una transacción aporta a un ciclo cuyo corte termina en `cutEnd`.
+ * - Compra normal: su monto completo, solo si cae dentro de la ventana [start, end].
+ * - Compra a MSI (msiMonths > 1): la mensualidad (amount/msiMonths), y solo si el corte
+ *   corresponde a uno de los pagos vigentes (índice 0..msiMonths-1). El monto completo
+ *   NO se suma de golpe; se reparte en N cortes, igual que el estado de cuenta del banco.
+ */
+function contributionForCut(
+  tx: Transaction,
+  statementDay: number,
+  windowStart: Date,
+  cutEnd: Date
+): number {
+  const txDate = toCalendarDate(tx.date as unknown as Date | string);
+  const msi = tx.msiMonths ?? null;
+
+  if (msi && msi > 1) {
+    // Para MSI, la ventana del propio mes no basta: el pago aplica en N cortes.
+    const idx = installmentIndexForCut(txDate, cutEnd, statementDay);
+    if (idx >= 0 && idx < msi) {
+      return tx.amount / msi;
+    }
+    return 0;
+  }
+
+  // Compra/pago normal: contribuye su monto completo solo si cae en la ventana del ciclo.
+  const start = new Date(windowStart); start.setHours(0, 0, 0, 0);
+  const end = new Date(cutEnd); end.setHours(23, 59, 59, 999);
+  return txDate >= start && txDate <= end ? tx.amount : 0;
+}
+
+/**
+ * Suma el monto de transacciones que aplican a un ciclo cuyo corte termina en `end`.
+ * Para compras a MSI reparte la mensualidad según el corte (ver contributionForCut).
  */
 function sumTransactionsInRange(
   debt: Debt,
@@ -184,25 +245,24 @@ function sumTransactionsInRange(
   start: Date,
   end: Date
 ): number {
-  const startTime = new Date(start);
-  startTime.setHours(0, 0, 0, 0);
-  const endTime = new Date(end);
-  endTime.setHours(23, 59, 59, 999);
+  const statementDay = debt.statementDay ?? 1;
 
   return transactions
     .filter((tx) => {
-      const matches =
-        kind === "purchase"
-          ? tx.type === "expense" && tx.debtId === debt.id
-          : tx.type === "transfer" && tx.transferToDebtId === debt.id;
-      if (!matches) return false;
-
-      // Usar el día de calendario real de la transacción (ver toCalendarDate):
-      // evita el corrimiento de un día por zona horaria con fechas `@db.Date`.
-      const txDate = toCalendarDate(tx.date as unknown as Date | string);
-      return txDate >= startTime && txDate <= endTime;
+      return kind === "purchase"
+        ? tx.type === "expense" && tx.debtId === debt.id
+        : tx.type === "transfer" && tx.transferToDebtId === debt.id;
     })
-    .reduce((sum, tx) => sum + tx.amount, 0);
+    .reduce((sum, tx) => {
+      // Los MSI solo aplican a compras; los pagos siempre son por su monto completo.
+      if (kind === "payment") {
+        const txDate = toCalendarDate(tx.date as unknown as Date | string);
+        const s = new Date(start); s.setHours(0, 0, 0, 0);
+        const e = new Date(end); e.setHours(23, 59, 59, 999);
+        return txDate >= s && txDate <= e ? sum + tx.amount : sum;
+      }
+      return sum + contributionForCut(tx, statementDay, start, end);
+    }, 0);
 }
 
 /**
@@ -415,8 +475,20 @@ export function DebtCard({
       purchasesStart,
       cycles.currentCycle.purchaseEnd
     );
-    
-    accruedNextCycle = baseAdjustment + currentPurchases;
+
+    // Abonos (pagos) realizados dentro del ciclo actual: reducen el acumulado del
+    // próximo corte, igual que en el estado de cuenta del banco. Se suman en la misma
+    // ventana que las compras (respetando el override date) para que la resta sea coherente.
+    const currentPayments = sumTransactionsInRange(
+      debt,
+      transactions,
+      "payment",
+      purchasesStart,
+      cycles.currentCycle.purchaseEnd
+    );
+
+    // El acumulado no puede ser negativo (un sobrepago no genera "saldo a favor" aquí).
+    accruedNextCycle = Math.max(0, baseAdjustment + currentPurchases - currentPayments);
     
     // DEBUG
     // const relevantTxs = transactions.filter(tx => tx.type === "expense" && tx.debtId === debt.id);
@@ -584,9 +656,9 @@ export function DebtCard({
                   />
                   {currentCycleInfo && (
                     <p className="text-[9px] text-muted-foreground mt-0.5">
-                      {debt.accruedNextCycleOverride != null 
-                        ? `Base: ${debt.accruedNextCycleOverride.toLocaleString()} + compras` 
-                        : `Compras ${currentCycleInfo.start.slice(5)} al ${currentCycleInfo.end.slice(5)}`}
+                      {debt.accruedNextCycleOverride != null
+                        ? `Base: ${debt.accruedNextCycleOverride.toLocaleString()} + compras − abonos`
+                        : `Compras − abonos ${currentCycleInfo.start.slice(5)} al ${currentCycleInfo.end.slice(5)}`}
                     </p>
                   )}
                   {onEditAccruedNextCycle && (

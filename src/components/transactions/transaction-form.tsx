@@ -100,6 +100,8 @@ export function TransactionFormModal() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly" | "yearly">("monthly");
   const [transferToWalletId, setTransferToWalletId] = useState("");
+  const [isMsi, setIsMsi] = useState(false);
+  const [msiMonths, setMsiMonths] = useState(3);
   const [showNote, setShowNote] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showInsufficientFundsConfirm, setShowInsufficientFundsConfirm] = useState(false);
@@ -201,6 +203,9 @@ export function TransactionFormModal() {
       setDate(dateValue);
       setIsRecurring(editTx.isRecurring);
       setFrequency(editTx.recurringRule?.frequency || "monthly");
+      // MSI: hidratar desde la transacción existente
+      setIsMsi(!!editTx.msiMonths && editTx.msiMonths > 1);
+      setMsiMonths(editTx.msiMonths && editTx.msiMonths > 1 ? editTx.msiMonths : 3);
       // Para transferencias, el destino puede ser un wallet o una deuda
       // El dropdown "Destino" usa transferToWalletId como estado, pero necesitamos cargar
       // tanto transferToWalletId como transferToDebtId dependiendo del caso
@@ -226,6 +231,7 @@ export function TransactionFormModal() {
     setDescription(""); setNote("");
     setDate(new Date().toISOString().split("T")[0]);
     setIsRecurring(false); setFrequency("monthly");
+    setIsMsi(false); setMsiMonths(3);
     setTransferToWalletId(""); setShowNote(false); setSelectedTagIds([]);
     setIsExternalTransfer(false); setExternalRecipient("");
     setShowNewWallet(false); setShowNewCategory(false); setShowNewTag(false);
@@ -384,6 +390,8 @@ export function TransactionFormModal() {
       transferToWalletId: isExternalTransfer ? undefined : (isTransferToWallet ? transferToWalletId : undefined),
       transferToDebtId: isExternalTransfer ? undefined : (isTransferToDebt ? transferToWalletId : undefined),
       externalRecipient: isExternalTransfer ? externalRecipient : undefined,
+      // MSI: solo para compras (expense) cargadas a una tarjeta/deuda
+      msiMonths: (isSourceDebt && type === "expense" && isMsi && msiMonths > 1) ? msiMonths : null,
     };
 
     if (isEditing && editTx) {
@@ -464,6 +472,10 @@ export function TransactionFormModal() {
   const activeWallets = wallets.filter((w) => !w.isArchived);
   const creditCardDebts = debts.filter((d) => (d.type === "credit_card" || d.type === "department_store") && d.isActive);
   const filteredCategories = categories.filter((c) => c.type === (type === "income" ? "income" : "expense"));
+
+  // El origen seleccionado es una tarjeta de crédito/departamental → habilita MSI
+  const isOriginDebt = creditCardDebts.some((d) => d.id === walletId);
+  const msiOptions = [3, 6, 9, 12, 18, 24];
 
   // Combined accounts: wallets + credit card debts
   const allAccounts = [
@@ -618,6 +630,45 @@ export function TransactionFormModal() {
               </p>
             )}
           </div>
+
+          {/* Meses sin intereses — solo para compras cargadas a tarjeta de crédito/departamental */}
+          {type === "expense" && isOriginDebt && (
+            <div className="space-y-3 p-3 bg-muted/50 rounded-xl border border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="cursor-pointer" onClick={() => setIsMsi(!isMsi)}>
+                    Meses sin intereses (MSI)
+                  </Label>
+                  <p className="text-xs text-muted-foreground leading-tight">
+                    Difiere la compra en mensualidades iguales sin interés
+                  </p>
+                </div>
+                <Switch checked={isMsi} onCheckedChange={setIsMsi} />
+              </div>
+              {isMsi && (
+                <div>
+                  <Label>Número de meses</Label>
+                  <Select value={String(msiMonths)} onValueChange={(v) => setMsiMonths(parseInt(v, 10))}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {msiOptions.map((m) => (
+                        <SelectItem key={m} value={String(m)}>{m} meses</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {parseFloat(amount) > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Mensualidad: {formatCurrency(parseFloat(amount) / msiMonths)} · {msiMonths} pagos.
+                      El saldo total de la tarjeta sube el monto completo; el acumulado por corte refleja solo la mensualidad.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {type === "transfer" && (
             <div className="space-y-3">
               <Label>Tipo de destino</Label>

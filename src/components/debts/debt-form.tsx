@@ -230,7 +230,14 @@ export function DebtFormModal() {
     }
 
     const parsedOriginalAmount = parseFloat(originalAmount);
-    const parsedCurrentBalance = parseFloat(currentBalance) || parsedOriginalAmount;
+    // Importante: distinguir "campo vacío" de "0". Antes se usaba `|| parsedOriginalAmount`,
+    // que al escribir 0 lo tomaba como falsy y lo reemplazaba por el monto original (bug:
+    // una deuda liquidada en 0 se reiniciaba al original). Ahora solo caemos al original
+    // si el campo está vacío o no es un número.
+    const trimmedBalance = currentBalance.trim();
+    const parsedBalanceRaw = parseFloat(trimmedBalance);
+    const parsedCurrentBalance =
+      trimmedBalance === "" || isNaN(parsedBalanceRaw) ? parsedOriginalAmount : parsedBalanceRaw;
     const parsedInterestRate = interestRate ? parseFloat(interestRate) : null;
     const parsedMinimumPayment = minimumPayment ? parseFloat(minimumPayment) : null;
     const parsedStatementDay = statementDay ? parseInt(statementDay, 10) : null;

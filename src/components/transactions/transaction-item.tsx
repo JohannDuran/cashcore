@@ -73,6 +73,17 @@ export function TransactionItem({ transaction, category, sourceAccount, transfer
               <span className="text-xs text-muted-foreground">{sourceAccount.name}</span>
             </>
           ) : null}
+          {typeof transaction.msiMonths === "number" && transaction.msiMonths > 1 && (
+            <>
+              <span className="text-xs text-muted-foreground">·</span>
+              <Badge
+                variant="secondary"
+                className="text-[10px] px-1.5 py-0 h-4 bg-violet-500/15 text-violet-600 dark:text-violet-300 border-violet-500/30"
+              >
+                {transaction.msiMonths} MSI
+              </Badge>
+            </>
+          )}
           {transaction.tags && transaction.tags.length > 0 && (
             <>
               <span className="text-xs text-muted-foreground">·</span>
