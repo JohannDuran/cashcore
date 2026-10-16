@@ -24,6 +24,8 @@ interface TransactionFormInput {
   recurringRule?: { frequency?: string; interval?: number } | null;
   transferToWalletId?: string | null;
   transferToDebtId?: string | null;
+  externalRecipient?: string | null;
+  msiMonths?: number | null;
   tagIds?: string[];
 }
 
@@ -44,6 +46,9 @@ function mapFrontendToDb(data: TransactionFormInput) {
     recurringInterval: data.recurringRule?.interval || null,
     transferToWalletId: data.transferToWalletId || null,
     transferToDebtId: data.transferToDebtId || null,
+    externalRecipient: data.externalRecipient || null,
+    // MSI: solo valores > 1 tienen sentido; cualquier otra cosa = pago único (null)
+    msiMonths: data.msiMonths && data.msiMonths > 1 ? data.msiMonths : null,
     tagIds: data.tagIds || [],
   };
 }

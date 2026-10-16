@@ -54,32 +54,48 @@ export function TransactionList({ transactions, categories, wallets, debts }: Tr
     setActiveModal("transaction-form");
   }
 
+  // Cuenta "placeholder" para cuando la wallet real ya no existe (fue eliminada):
+  // reutilizamos el nombre guardado en la transacción para no mostrar "?".
+  const COLOR_ELIMINADA = "#94A3B8"; // gris neutro
+  function placeholderAccount(name: string) {
+    return { id: "__deleted__", name, color: COLOR_ELIMINADA, balance: 0 } as unknown as Wallet;
+  }
+
   // Función helper para obtener la cuenta origen (wallet o debt)
   function getSourceAccount(tx: Transaction) {
     if (tx.walletId) {
-      return wallets.find((w) => w.id === tx.walletId);
+      const w = wallets.find((w) => w.id === tx.walletId);
+      if (w) return w;
     }
     if (tx.debtId) {
-      return debts.find((d) => d.id === tx.debtId);
+      const d = debts.find((d) => d.id === tx.debtId);
+      if (d) return d;
     }
+    // La wallet/deuda ya no existe: usar el nombre preservado si lo hay
+    if (tx.walletName) return placeholderAccount(tx.walletName);
     return undefined;
   }
 
   // Función helper para obtener la cuenta destino de transferencia (wallet o debt)
   function getTransferDestination(tx: Transaction) {
     if (tx.type !== "transfer") return undefined;
-    
+
     // Primero verificamos si viene la relación ya incluida desde el servidor
     if (tx.transferToWallet) return tx.transferToWallet;
     if (tx.transferToDebt) return tx.transferToDebt;
-    
+
     // Si no, buscamos por ID
     if (tx.transferToWalletId) {
-      return wallets.find((w) => w.id === tx.transferToWalletId);
+      const w = wallets.find((w) => w.id === tx.transferToWalletId);
+      if (w) return w;
     }
     if (tx.transferToDebtId) {
-      return debts.find((d) => d.id === tx.transferToDebtId);
+      const d = debts.find((d) => d.id === tx.transferToDebtId);
+      if (d) return d;
     }
+    // Destino preservado (wallet eliminada) o transferencia a tercero
+    if (tx.transferToWalletName) return placeholderAccount(tx.transferToWalletName);
+    if (tx.externalRecipient) return placeholderAccount(tx.externalRecipient);
     return undefined;
   }
 

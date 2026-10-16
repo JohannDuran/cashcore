@@ -100,10 +100,14 @@ export function TransactionFormModal() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly" | "yearly">("monthly");
   const [transferToWalletId, setTransferToWalletId] = useState("");
+  const [isMsi, setIsMsi] = useState(false);
+  const [msiMonths, setMsiMonths] = useState(3);
   const [showNote, setShowNote] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showInsufficientFundsConfirm, setShowInsufficientFundsConfirm] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [isExternalTransfer, setIsExternalTransfer] = useState(false);
+  const [externalRecipient, setExternalRecipient] = useState("");
 
   // Track latest IDs synchronously to avoid stale closure on submit
   const latestCategoryId = React.useRef("");
@@ -199,11 +203,17 @@ export function TransactionFormModal() {
       setDate(dateValue);
       setIsRecurring(editTx.isRecurring);
       setFrequency(editTx.recurringRule?.frequency || "monthly");
+      // MSI: hidratar desde la transacción existente
+      setIsMsi(!!editTx.msiMonths && editTx.msiMonths > 1);
+      setMsiMonths(editTx.msiMonths && editTx.msiMonths > 1 ? editTx.msiMonths : 3);
       // Para transferencias, el destino puede ser un wallet o una deuda
       // El dropdown "Destino" usa transferToWalletId como estado, pero necesitamos cargar
       // tanto transferToWalletId como transferToDebtId dependiendo del caso
       const transferDestination = editTx.transferToWalletId || editTx.transferToDebtId || "";
       setTransferToWalletId(transferDestination);
+      // Cargar datos de transferencia externa
+      setIsExternalTransfer(!!editTx.externalRecipient);
+      setExternalRecipient(editTx.externalRecipient || "");
       setShowNote(!!editTx.note);
       setSelectedTagIds(editTx.tags || []);
     } else {
@@ -221,7 +231,9 @@ export function TransactionFormModal() {
     setDescription(""); setNote("");
     setDate(new Date().toISOString().split("T")[0]);
     setIsRecurring(false); setFrequency("monthly");
+    setIsMsi(false); setMsiMonths(3);
     setTransferToWalletId(""); setShowNote(false); setSelectedTagIds([]);
+    setIsExternalTransfer(false); setExternalRecipient("");
     setShowNewWallet(false); setShowNewCategory(false); setShowNewTag(false);
   }
 
@@ -327,7 +339,12 @@ export function TransactionFormModal() {
     }
     if (editTx.type === "income") return `Se restarán ${formatCurrency(editTx.amount)} del balance de ${originName}.`;
 
-    // Para transferencias, buscar el destino en wallets o deudas
+    // Para transferencias externas
+    if (editTx.externalRecipient) {
+      return `Se devolverán ${formatCurrency(editTx.amount)} a ${originName}. (Pago a: ${editTx.externalRecipient})`;
+    }
+
+    // Para transferencias internas, buscar el destino en wallets o deudas
     const destWallet = wallets.find((w) => w.id === editTx.transferToWalletId);
     const destDebt = debts.find((d) => d.id === editTx.transferToDebtId);
     const destName = destWallet?.name || destDebt?.name || "destino desconocido";
@@ -342,8 +359,9 @@ export function TransactionFormModal() {
     const numAmount = parseFloat(amount);
 
     // Determinar si el destino de la transferencia es un wallet o una deuda
-    const isTransferToDebt = type === "transfer" && debts.some(d => d.id === transferToWalletId);
-    const isTransferToWallet = type === "transfer" && wallets.some(w => w.id === transferToWalletId);
+    // Solo aplica si NO es transferencia externa
+    const isTransferToDebt = type === "transfer" && !isExternalTransfer && debts.some(d => d.id === transferToWalletId);
+    const isTransferToWallet = type === "transfer" && !isExternalTransfer && wallets.some(w => w.id === transferToWalletId);
 
     // Determinar la moneda - puede venir de wallet o deuda origen
     const sourceWallet = wallets.find((w) => w.id === currentWalletId);
@@ -367,9 +385,13 @@ export function TransactionFormModal() {
       recurringRule: isRecurring ? { frequency, interval: 1 } : undefined,
       tags: selectedTagIds,
       tagIds: selectedTagIds,
-      // Enviar el campo correcto según si el destino es wallet o deuda
-      transferToWalletId: isTransferToWallet ? transferToWalletId : undefined,
-      transferToDebtId: isTransferToDebt ? transferToWalletId : undefined,
+      // Para transferencia externa, no enviar destino interno
+      // Para transferencia interna, enviar el campo correcto según si el destino es wallet o deuda
+      transferToWalletId: isExternalTransfer ? undefined : (isTransferToWallet ? transferToWalletId : undefined),
+      transferToDebtId: isExternalTransfer ? undefined : (isTransferToDebt ? transferToWalletId : undefined),
+      externalRecipient: isExternalTransfer ? externalRecipient : undefined,
+      // MSI: solo para compras (expense) cargadas a una tarjeta/deuda
+      msiMonths: (isSourceDebt && type === "expense" && isMsi && msiMonths > 1) ? msiMonths : null,
     };
 
     if (isEditing && editTx) {
@@ -399,8 +421,9 @@ export function TransactionFormModal() {
     if (!numAmount || numAmount <= 0) { toast.error("Ingresa un monto válido"); return; }
     if (!currentWalletId) { toast.error("Selecciona un wallet"); return; }
     if (type !== "transfer" && !currentCategoryId) { toast.error("Selecciona una categoría"); return; }
-    if (type === "transfer" && !transferToWalletId) { toast.error("Selecciona el wallet destino"); return; }
-    if (type === "transfer" && currentWalletId === transferToWalletId) { toast.error("Los wallets deben ser diferentes"); return; }
+    if (type === "transfer" && !isExternalTransfer && !transferToWalletId) { toast.error("Selecciona el wallet destino"); return; }
+    if (type === "transfer" && !isExternalTransfer && currentWalletId === transferToWalletId) { toast.error("Los wallets deben ser diferentes"); return; }
+    if (type === "transfer" && isExternalTransfer && !externalRecipient.trim()) { toast.error("Ingresa el nombre del destinatario"); return; }
 
     // Si hay fondos insuficientes, mostrar diálogo de confirmación en lugar de bloquear
     if (fundsError && type !== "income") {
@@ -449,6 +472,10 @@ export function TransactionFormModal() {
   const activeWallets = wallets.filter((w) => !w.isArchived);
   const creditCardDebts = debts.filter((d) => (d.type === "credit_card" || d.type === "department_store") && d.isActive);
   const filteredCategories = categories.filter((c) => c.type === (type === "income" ? "income" : "expense"));
+
+  // El origen seleccionado es una tarjeta de crédito/departamental → habilita MSI
+  const isOriginDebt = creditCardDebts.some((d) => d.id === walletId);
+  const msiOptions = [3, 6, 9, 12, 18, 24];
 
   // Combined accounts: wallets + credit card debts
   const allAccounts = [
@@ -603,46 +630,128 @@ export function TransactionFormModal() {
               </p>
             )}
           </div>
+
+          {/* Meses sin intereses — solo para compras cargadas a tarjeta de crédito/departamental */}
+          {type === "expense" && isOriginDebt && (
+            <div className="space-y-3 p-3 bg-muted/50 rounded-xl border border-border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="cursor-pointer" onClick={() => setIsMsi(!isMsi)}>
+                    Meses sin intereses (MSI)
+                  </Label>
+                  <p className="text-xs text-muted-foreground leading-tight">
+                    Difiere la compra en mensualidades iguales sin interés
+                  </p>
+                </div>
+                <Switch checked={isMsi} onCheckedChange={setIsMsi} />
+              </div>
+              {isMsi && (
+                <div>
+                  <Label>Número de meses</Label>
+                  <Select value={String(msiMonths)} onValueChange={(v) => setMsiMonths(parseInt(v, 10))}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {msiOptions.map((m) => (
+                        <SelectItem key={m} value={String(m)}>{m} meses</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {parseFloat(amount) > 0 && (
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Mensualidad: {formatCurrency(parseFloat(amount) / msiMonths)} · {msiMonths} pagos.
+                      El saldo total de la tarjeta sube el monto completo; el acumulado por corte refleja solo la mensualidad.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {type === "transfer" && (
-            <div>
-              <Label>Destino</Label>
-              <Select value={transferToWalletId} onValueChange={setTransferToWalletId}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Selecciona destino" />
-                </SelectTrigger>
-                <SelectContent>
-                  {/* Deudas primero */}
-                  {debts.filter((d) => d.isActive && d.id !== walletId).length > 0 && (
-                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Deudas</div>
+            <div className="space-y-3">
+              <Label>Tipo de destino</Label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsExternalTransfer(false); setExternalRecipient(""); }}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-sm font-medium border transition-all cursor-pointer",
+                    !isExternalTransfer
+                      ? "border-transfer bg-transfer/10 text-transfer"
+                      : "border-transparent bg-muted text-muted-foreground hover:bg-accent"
                   )}
-                  {debts.filter((d) => d.isActive && d.id !== walletId).map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      <span className="flex items-center gap-2 w-full">
-                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                        <span className="truncate">{d.name}</span>
-                        <span className="ml-auto text-xs font-semibold tabular-nums text-red-500">
-                          -{formatCurrency(d.currentBalance, d.currency)}
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                  {/* Wallets después */}
-                  {activeWallets.filter((w) => w.id !== walletId).length > 0 && (
-                    <div className={cn("px-2 py-1.5 text-xs font-semibold text-muted-foreground", debts.filter((d) => d.isActive && d.id !== walletId).length > 0 && "border-t mt-1 pt-2")}>Wallets</div>
+                >
+                  Cuenta propia / Deuda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setIsExternalTransfer(true); setTransferToWalletId(""); }}
+                  className={cn(
+                    "flex-1 py-2 rounded-lg text-sm font-medium border transition-all cursor-pointer",
+                    isExternalTransfer
+                      ? "border-transfer bg-transfer/10 text-transfer"
+                      : "border-transparent bg-muted text-muted-foreground hover:bg-accent"
                   )}
-                  {activeWallets.filter((w) => w.id !== walletId).map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      <span className="flex items-center gap-2 w-full">
-                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: w.color }} />
-                        <span className="truncate">{w.name}</span>
-                        <span className={cn("ml-auto text-xs font-semibold tabular-nums", w.balance >= 0 ? "text-green-500" : "text-red-500")}>
-                          {formatCurrency(w.balance, w.currency)}
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                >
+                  Pago a tercero
+                </button>
+              </div>
+
+              {isExternalTransfer ? (
+                <div>
+                  <Label htmlFor="externalRecipient">Nombre del destinatario</Label>
+                  <Input
+                    id="externalRecipient"
+                    placeholder="Ej: Juan Pérez, Restaurante ABC..."
+                    value={externalRecipient}
+                    onChange={(e) => setExternalRecipient(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <Label>Destino</Label>
+                  <Select value={transferToWalletId} onValueChange={setTransferToWalletId}>
+                    <SelectTrigger className="mt-1">
+                      <SelectValue placeholder="Selecciona destino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Deudas primero */}
+                      {debts.filter((d) => d.isActive && d.id !== walletId).length > 0 && (
+                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Deudas</div>
+                      )}
+                      {debts.filter((d) => d.isActive && d.id !== walletId).map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          <span className="flex items-center gap-2 w-full">
+                            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                            <span className="truncate">{d.name}</span>
+                            <span className="ml-auto text-xs font-semibold tabular-nums text-red-500">
+                              -{formatCurrency(d.currentBalance, d.currency)}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                      {/* Wallets después */}
+                      {activeWallets.filter((w) => w.id !== walletId).length > 0 && (
+                        <div className={cn("px-2 py-1.5 text-xs font-semibold text-muted-foreground", debts.filter((d) => d.isActive && d.id !== walletId).length > 0 && "border-t mt-1 pt-2")}>Wallets</div>
+                      )}
+                      {activeWallets.filter((w) => w.id !== walletId).map((w) => (
+                        <SelectItem key={w.id} value={w.id}>
+                          <span className="flex items-center gap-2 w-full">
+                            <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: w.color }} />
+                            <span className="truncate">{w.name}</span>
+                            <span className={cn("ml-auto text-xs font-semibold tabular-nums", w.balance >= 0 ? "text-green-500" : "text-red-500")}>
+                              {formatCurrency(w.balance, w.currency)}
+                            </span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
             </div>
           )}
 

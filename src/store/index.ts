@@ -373,10 +373,24 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
     })),
 
   deleteWallet: (id) =>
-    set((state) => ({
-      wallets: state.wallets.filter((w) => w.id !== id),
-      transactions: state.transactions.filter((t) => t.walletId !== id),
-    })),
+    set((state) => {
+      const deleted = state.wallets.find((w) => w.id === id);
+      const deletedName = deleted?.name ?? null;
+      return {
+        wallets: state.wallets.filter((w) => w.id !== id),
+        // Conservamos las transacciones. Si la wallet eliminada era origen o destino,
+        // guardamos su nombre como texto y limpiamos el id (igual que onDelete: SetNull en BD).
+        transactions: state.transactions.map((t) => {
+          if (t.walletId === id) {
+            return { ...t, walletId: null, walletName: t.walletName ?? deletedName };
+          }
+          if (t.transferToWalletId === id) {
+            return { ...t, transferToWalletId: null, transferToWalletName: t.transferToWalletName ?? deletedName };
+          }
+          return t;
+        }),
+      };
+    }),
 
   // ── Budgets ──
   addBudget: (budgetData) =>

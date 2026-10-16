@@ -74,6 +74,10 @@ export interface Transaction {
   transferToDebtId?: string | null;
   transferToWallet?: Wallet;
   transferToDebt?: Debt;
+  externalRecipient?: string | null;
+  walletName?: string | null;           // Nombre de origen preservado si la wallet fue eliminada
+  transferToWalletName?: string | null; // Nombre de destino preservado si la wallet destino fue eliminada
+  msiMonths?: number | null;            // Meses sin intereses de una compra con tarjeta (null/1 = pago único)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -201,7 +205,8 @@ export interface Subscription {
   color: string;
   isActive: boolean;
   isDomiciliado: boolean;
-  walletId?: string;
+  walletId?: string | null;
+  debtId?: string | null; // Cuenta de cargo cuando es una tarjeta de crédito/departamental
   notes?: string;
   createdAt: Date;
 }

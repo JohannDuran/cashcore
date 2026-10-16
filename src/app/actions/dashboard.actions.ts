@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 import { sanitizeError } from "@/lib/utils";
+import { subscriptionService } from "@/lib/services/subscription.service";
 import logger from "@/lib/logger";
 
 export async function getDashboardDataAction() {
@@ -14,6 +15,18 @@ export async function getDashboardDataAction() {
   }
 
   try {
+    // Procesar domiciliaciones vencidas ANTES de leer los datos, para que las
+    // transacciones generadas ya aparezcan en los datos frescos del dashboard.
+    // Si algo falla aquí, no debe bloquear la carga del dashboard.
+    try {
+      const createdCount = await subscriptionService.processDueSubscriptions(user.id);
+      if (createdCount > 0) {
+        logger.info({ userId: user.id, createdCount }, "domiciled subscriptions processed");
+      }
+    } catch (subError) {
+      logger.error({ err: subError, userId: user.id }, "processDueSubscriptions failed (non-blocking)");
+    }
+
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
     });

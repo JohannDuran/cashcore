@@ -38,8 +38,33 @@ export const walletService = {
   },
 
   async deleteWallet(userId: string, walletId: string) {
-    return prisma.wallet.delete({
+    // Antes de borrar la wallet, preservamos su nombre en las transacciones que la
+    // referencian (como origen o como destino). Así el historial se conserva (gracias
+    // a onDelete: SetNull) y la UI puede seguir mostrando el nombre en vez de "?".
+    const wallet = await prisma.wallet.findUnique({
       where: { id: walletId, userId },
+      select: { name: true },
+    });
+    if (!wallet) {
+      throw new Error('Wallet not found');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // Transacciones donde esta wallet es el ORIGEN
+      await tx.transaction.updateMany({
+        where: { userId, walletId },
+        data: { walletName: wallet.name },
+      });
+      // Transacciones donde esta wallet es el DESTINO de una transferencia
+      await tx.transaction.updateMany({
+        where: { userId, transferToWalletId: walletId },
+        data: { transferToWalletName: wallet.name },
+      });
+      // Al borrar, onDelete: SetNull deja walletId/transferToWalletId en null
+      // pero conserva la transacción y el nombre ya guardado.
+      return tx.wallet.delete({
+        where: { id: walletId, userId },
+      });
     });
   }
 };

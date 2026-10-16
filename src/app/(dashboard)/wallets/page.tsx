@@ -26,8 +26,9 @@ import {
   Wallet as WalletIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Wallet } from "@/types";
+import { deleteWalletAction } from "@/app/actions/wallet.actions";
 
 function isDebtWallet(wallet: Wallet) {
   return wallet.type === "credit" || wallet.type === "loan";
@@ -36,7 +37,38 @@ function isDebtWallet(wallet: Wallet) {
 export default function WalletsPage() {
   const { wallets, transactions, setActiveModal, setEditingItem, deleteWallet } = useCashCoreStore();
   const [deleteTarget, setDeleteTarget] = useState<Wallet | null>(null);
-  const [currentDate] = useState(() => new Date());
+  // Fecha de referencia para el cálculo de rendimiento. Se refresca sola al
+  // cruzar la medianoche local, para que el "rendimiento generado" avance de día
+  // sin necesidad de recargar la página.
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const scheduleNextMidnight = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setHours(24, 0, 0, 0); // próxima medianoche local
+      const msUntilMidnight = nextMidnight.getTime() - now.getTime();
+      timeoutId = setTimeout(() => {
+        setCurrentDate(new Date());
+        scheduleNextMidnight(); // reprogramar para el siguiente día
+      }, msUntilMidnight + 1000); // +1s de margen para asegurar que ya cruzó el día
+    };
+
+    // Si el usuario vuelve a la pestaña tras tenerla abierta, refrescar por si cambió el día
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") setCurrentDate(new Date());
+    };
+
+    scheduleNextMidnight();
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearTimeout(timeoutId);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   const activeWallets = wallets.filter((w) => !w.isArchived);
   const assetWallets = activeWallets.filter((wallet) => !isDebtWallet(wallet));
@@ -65,9 +97,15 @@ export default function WalletsPage() {
 
   function handleDelete() {
     if (deleteTarget) {
-      deleteWallet(deleteTarget.id);
+      const id = deleteTarget.id;
+      // Optimista: actualiza el store (conserva transacciones y preserva nombres)
+      deleteWallet(id);
       setDeleteTarget(null);
-      toast.success("Wallet eliminado");
+      // Persistir en la base de datos (preserva nombres en las transacciones afectadas)
+      deleteWalletAction(id).then((res) => {
+        if (!res.success) toast.error("No se pudo eliminar la cuenta: " + res.error);
+        else toast.success("Wallet eliminado");
+      });
     }
   }
 

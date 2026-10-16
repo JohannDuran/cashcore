@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCashCoreStore } from "@/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,6 @@ import {
 } from "lucide-react";
 import { SubscriptionFormModal } from "@/components/subscriptions/subscription-form";
 import { PlatformLogo } from "@/components/shared/platform-logo";
-import { updateSubscriptionAction } from "@/app/actions/subscription.actions";
 
 const cycleLabels: Record<string, string> = {
   weekly: "Semanal",
@@ -61,9 +60,24 @@ type ExchangeRateState = {
   error: string | null;
 };
 
+/**
+ * Convierte una fecha (string de @db.Date o Date) a una Date a medianoche LOCAL
+ * que representa su DÍA DE CALENDARIO real. nextBillDate se guarda como @db.Date
+ * (medianoche UTC: "2026-10-17T00:00:00.000Z"); si usáramos new Date()+setHours en
+ * una zona GMT negativa, el día se correría al anterior. Tomamos los componentes UTC
+ * para evitar ese desfase, de modo que "mañana" cuente como 1 día y no 0.
+ */
+function toCalendarMidnight(value: string | Date): Date {
+  if (typeof value === "string") {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  const d = new Date(value);
+  return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
 function getEffectiveNextBillDate(nextBillDate: string, billingCycle: string, referenceDate: Date): Date {
-  const billDate = new Date(nextBillDate);
-  billDate.setHours(0, 0, 0, 0);
+  const billDate = toCalendarMidnight(nextBillDate);
 
   if (billDate >= referenceDate) return billDate;
 
@@ -81,7 +95,7 @@ function getEffectiveNextBillDate(nextBillDate: string, billingCycle: string, re
 }
 
 export default function SubscriptionsPage() {
-  const { subscriptions, categories, wallets, user, setActiveModal, setEditingItem, updateSubscription } = useCashCoreStore();
+  const { subscriptions, categories, wallets, user, setActiveModal, setEditingItem } = useCashCoreStore();
   const defaultCurrency = user?.defaultCurrency || "MXN";
   const [displayCurrency, setDisplayCurrency] = useState<Currency>(defaultCurrency);
   const [exchangeRateState, setExchangeRateState] = useState<ExchangeRateState>({
@@ -95,29 +109,13 @@ export default function SubscriptionsPage() {
     return d;
   });
   const now = today.getTime();
-  const hasAdvanced = useRef(false);
   const [sortField, setSortField] = useState<SortField>("nextBillDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
-  // Auto-advance past-due subscriptions to the next billing date
-  useEffect(() => {
-    if (hasAdvanced.current || !user?.id) return;
-    hasAdvanced.current = true;
-
-    subscriptions.forEach((sub) => {
-      if (!sub.isActive || !sub.nextBillDate) return;
-
-      const billDate = new Date(sub.nextBillDate);
-      billDate.setHours(0, 0, 0, 0);
-
-      if (billDate >= today) return;
-
-      const effective = getEffectiveNextBillDate(sub.nextBillDate, sub.billingCycle, today);
-      const newDate = effective.toISOString();
-      updateSubscription(sub.id, { nextBillDate: newDate });
-      updateSubscriptionAction(sub.id, { nextBillDate: newDate });
-    });
-  }, [subscriptions, user?.id, updateSubscription, today]);
+  // NOTA: el avance de nextBillDate y la generación del cobro los hace el servidor
+  // (subscriptionService.processDueSubscriptions, invocado en getDashboardDataAction).
+  // Antes había aquí un useEffect que adelantaba la fecha SIN crear la transacción,
+  // lo que entraba en conflicto y "saltaba" cobros. Se eliminó a propósito.
 
   const activeSubs = useMemo(
     () => subscriptions.filter((subscription) => subscription.isActive),

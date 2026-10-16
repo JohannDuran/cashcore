@@ -19,11 +19,31 @@ export function formatCurrency(
   }).format(amount);
 }
 
+/**
+ * Convierte un valor de fecha a una Date a medianoche LOCAL que representa su
+ * DÍA DE CALENDARIO real, sin importar la zona horaria.
+ *
+ * Las fechas de transacción se guardan como `@db.Date` (medianoche UTC, p. ej.
+ * "2026-10-14T00:00:00.000Z"). Si se formatean con `new Date(...)` + métodos locales
+ * en una zona GMT negativa (ej. GMT-6), el día se corre al anterior (se vería "13").
+ * Para evitarlo tomamos los componentes de calendario correctos y construimos una
+ * fecha local equivalente, de modo que lo mostrado coincida con lo guardado.
+ */
+export function toLocalCalendarDate(dateStr: string | Date): Date {
+  if (typeof dateStr === "string") {
+    const m = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    const parsed = new Date(dateStr);
+    return new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+  }
+  return new Date(dateStr.getUTCFullYear(), dateStr.getUTCMonth(), dateStr.getUTCDate());
+}
+
 export function formatDate(
   dateStr: string,
   options?: Intl.DateTimeFormatOptions
 ): string {
-  const date = new Date(dateStr);
+  const date = toLocalCalendarDate(dateStr);
   return new Intl.DateTimeFormat("es-MX", {
     day: "numeric",
     month: "short",
@@ -32,23 +52,25 @@ export function formatDate(
   }).format(date);
 }
 
-export function formatRelativeDate(dateStr: string): string {
-  const date = new Date(dateStr);
+/** Diferencia en días de calendario entre dos fechas (ignora la hora). */
+function calendarDayDiff(dateStr: string | Date): number {
+  const date = toLocalCalendarDate(dateStr);
   const now = new Date();
-  const diffTime = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function formatRelativeDate(dateStr: string): string {
+  const diffDays = calendarDayDiff(dateStr);
 
   if (diffDays === 0) return "Hoy";
   if (diffDays === 1) return "Ayer";
-  if (diffDays < 7) return `Hace ${diffDays} días`;
+  if (diffDays > 0 && diffDays < 7) return `Hace ${diffDays} días`;
   return formatDate(dateStr);
 }
 
 export function formatDateGroup(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffTime = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  const diffDays = calendarDayDiff(dateStr);
 
   if (diffDays === 0) return "Hoy";
   if (diffDays === 1) return "Ayer";
@@ -56,7 +78,7 @@ export function formatDateGroup(dateStr: string): string {
     weekday: "long",
     day: "numeric",
     month: "long",
-  }).format(date);
+  }).format(toLocalCalendarDate(dateStr));
 }
 
 export function generateId(): string {
@@ -131,7 +153,14 @@ export function calculateInterestProjection(
   now: Date = new Date()
 ): InterestProjection {
   const msPerDay = 1000 * 60 * 60 * 24;
-  const daysElapsed = Math.max(0, Math.floor((now.getTime() - startDate.getTime()) / msPerDay));
+  // Contar por DÍA DE CALENDARIO, no por 24h exactas: normalizamos ambas fechas
+  // a medianoche local (00:00). Así, al cambiar de día ya cuenta +1 aunque no
+  // hayan transcurrido 24h desde la hora exacta en que se activó el interés.
+  const startMidnight = new Date(startDate);
+  startMidnight.setHours(0, 0, 0, 0);
+  const nowMidnight = new Date(now);
+  nowMidnight.setHours(0, 0, 0, 0);
+  const daysElapsed = Math.max(0, Math.round((nowMidnight.getTime() - startMidnight.getTime()) / msPerDay));
 
   if (daysElapsed === 0 || annualRate === 0) {
     return {
