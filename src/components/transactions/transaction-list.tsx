@@ -14,7 +14,31 @@ interface TransactionListProps {
 }
 
 export function TransactionList({ transactions, categories, wallets, debts }: TransactionListProps) {
-  const { setActiveModal, setEditingItem } = useCashCoreStore();
+  const { setActiveModal, setEditingItem, tags } = useCashCoreStore();
+
+  // Mapa id -> tag para resolver las etiquetas (que llegan como IDs) a nombre y color.
+  const tagById = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; color: string }>();
+    for (const t of tags) m.set(t.id, { id: t.id, name: t.name, color: t.color });
+    return m;
+  }, [tags]);
+
+  // Resuelve las tags de una transacción (strings u objetos) a objetos {id, name, color}.
+  function resolveTags(tx: Transaction): { id: string; name: string; color: string }[] {
+    if (!Array.isArray(tx.tags)) return [];
+    return tx.tags
+      .map((t: unknown) => {
+        if (typeof t === "string") {
+          return tagById.get(t) ?? { id: t, name: t, color: "#64748B" };
+        }
+        if (t && typeof t === "object" && "id" in t) {
+          const obj = t as { id: string; name?: string; color?: string };
+          return tagById.get(obj.id) ?? { id: obj.id, name: obj.name ?? obj.id, color: obj.color ?? "#64748B" };
+        }
+        return null;
+      })
+      .filter((x): x is { id: string; name: string; color: string } => !!x);
+  }
 
   const grouped = useMemo(() => {
     // Primero, sanitizamos las fechas de todas las transacciones
@@ -118,6 +142,7 @@ export function TransactionList({ transactions, categories, wallets, debts }: Tr
                 category={categories.find((c) => c.id === tx.categoryId)}
                 sourceAccount={getSourceAccount(tx)}
                 transferToAccount={getTransferDestination(tx)}
+                resolvedTags={resolveTags(tx)}
                 onClick={() => handleEdit(tx)}
               />
             ))}
