@@ -16,6 +16,7 @@ interface TransactionItemProps {
   category?: Category;
   sourceAccount?: Account;
   transferToAccount?: Account;
+  resolvedTags?: { id: string; name: string; color: string }[];
   onClick?: () => void;
 }
 
@@ -24,7 +25,7 @@ function isWallet(account: Account): account is Wallet {
   return 'balance' in account;
 }
 
-export function TransactionItem({ transaction, category, sourceAccount, transferToAccount, onClick }: TransactionItemProps) {
+export function TransactionItem({ transaction, category, sourceAccount, transferToAccount, resolvedTags, onClick }: TransactionItemProps) {
   return (
     <button
       onClick={onClick}
@@ -84,12 +85,21 @@ export function TransactionItem({ transaction, category, sourceAccount, transfer
               </Badge>
             </>
           )}
-          {transaction.tags && transaction.tags.length > 0 && (
+          {resolvedTags && resolvedTags.length > 0 && (
             <>
               <span className="text-xs text-muted-foreground">·</span>
-              {transaction.tags.slice(0, 2).map((tag: any) => (
-                <Badge key={typeof tag === 'string' ? tag : tag.id || tag.name} variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-                  #{typeof tag === 'string' ? tag : tag.name}
+              {resolvedTags.slice(0, 2).map((tag) => (
+                <Badge
+                  key={tag.id}
+                  variant="secondary"
+                  className="text-[10px] px-1.5 py-0 h-4 border"
+                  style={{
+                    backgroundColor: `${tag.color}20`,
+                    color: tag.color,
+                    borderColor: `${tag.color}40`,
+                  }}
+                >
+                  #{tag.name}
                 </Badge>
               ))}
             </>

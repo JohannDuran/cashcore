@@ -215,7 +215,18 @@ export function TransactionFormModal() {
       setIsExternalTransfer(!!editTx.externalRecipient);
       setExternalRecipient(editTx.externalRecipient || "");
       setShowNote(!!editTx.note);
-      setSelectedTagIds(editTx.tags || []);
+      // editTx.tags puede venir como string[] (IDs) o como objetos {id, name,...} según
+      // el origen de los datos. Normalizamos SIEMPRE a IDs string para no mandar objetos
+      // al backend (que provocaba "Etiquetas no encontradas o no autorizadas").
+      setSelectedTagIds(
+        Array.isArray(editTx.tags)
+          ? editTx.tags
+              .map((t: unknown) =>
+                typeof t === "string" ? t : (t && typeof t === "object" && "id" in t ? String((t as { id: unknown }).id) : "")
+              )
+              .filter((id): id is string => !!id)
+          : []
+      );
     } else {
       resetForm();
     }
