@@ -11,6 +11,7 @@ export interface User {
   name: string;
   avatarUrl?: string;
   defaultCurrency: Currency;
+  timezone?: string | null;
   preferredLocale: string;
   theme: 'light' | 'dark' | 'system';
   createdAt: Date;
@@ -168,7 +169,12 @@ export interface Debt {
   currentBalance: number;
   interestRate?: number | null;
   minimumPayment?: number | null;
+  statementDay?: number | null;
   paymentDueDay?: number | null;
+  paymentDueMonthOffset?: number; // 0=mismo mes, 1=mes siguiente, 2=dos meses después del corte
+  statementPaidUntil?: string | null;
+  accruedNextCycleOverride?: number | null;
+  accruedOverrideDate?: string | null;
   nextPaymentDate?: string | null;
   startDate: string;
   endDate?: string | null;

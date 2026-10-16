@@ -7,7 +7,9 @@ import { sanitizeError } from "@/lib/utils";
 import logger from "@/lib/logger";
 
 /**
- * Convierte un valor a Date válido, o retorna null si es inválido/vacío
+ * Convierte un valor a Date válido, o retorna null si es inválido/vacío.
+ * Para fechas tipo @db.Date (solo fecha, sin hora), agrega hora de mediodía
+ * para evitar desfases por zona horaria al guardar en UTC.
  */
 function toValidDate(value: unknown): Date | null {
   if (!value) return null;
@@ -21,6 +23,14 @@ function toValidDate(value: unknown): Date | null {
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (!trimmed) return null;
+    
+    // Si es formato YYYY-MM-DD, parsear como fecha local a mediodía
+    // para evitar desfase de zona horaria
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      const [year, month, day] = trimmed.split('-').map(Number);
+      const date = new Date(year, month - 1, day, 12, 0, 0);
+      return isNaN(date.getTime()) ? null : date;
+    }
     
     const date = new Date(trimmed);
     return isNaN(date.getTime()) ? null : date;
@@ -56,6 +66,14 @@ function mapFrontendToDb(frontendDebt: Partial<Debt>) {
     const nextPaymentDate = toValidDate(dbData.nextPaymentDate);
     // Si nextPaymentDate es null o inválido, establecer como null (campo opcional)
     dbData.nextPaymentDate = nextPaymentDate;
+  }
+
+  if ('statementPaidUntil' in dbData) {
+    dbData.statementPaidUntil = toValidDate(dbData.statementPaidUntil);
+  }
+
+  if ('accruedOverrideDate' in dbData) {
+    dbData.accruedOverrideDate = toValidDate(dbData.accruedOverrideDate);
   }
   
   if ('createdAt' in dbData) {
@@ -112,6 +130,12 @@ export async function updateDebtAction(debtId: string, data: Partial<Debt>) {
     delete dbData.userId;
     delete dbData.createdAt;
     delete dbData.updatedAt;
+
+    // startDate es obligatorio en el esquema: nunca enviar null en un update.
+    // Si viene vacío/invalido, se omite para conservar el valor existente.
+    if ('startDate' in dbData && dbData.startDate == null) {
+      delete dbData.startDate;
+    }
 
     const updatedDebt = await debtService.updateDebt(user.id, debtId, dbData);
 

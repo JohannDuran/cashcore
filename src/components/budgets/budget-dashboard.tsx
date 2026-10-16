@@ -68,7 +68,10 @@ function getCategoryBreakdown(
       budget.categoryIds.includes(t.categoryId) &&
       new Date(t.date) >= startDate &&
       new Date(t.date) <= endBound &&
-      (budget.walletIds.length === 0 || (t.walletId && budget.walletIds.includes(t.walletId)))
+      // budget.walletIds puede incluir tarjetas de crédito (deudas): revisar walletId y debtId.
+      (budget.walletIds.length === 0 ||
+        (t.walletId && budget.walletIds.includes(t.walletId)) ||
+        (t.debtId && budget.walletIds.includes(t.debtId)))
   );
 
   const byCategory = new Map<string, number>();

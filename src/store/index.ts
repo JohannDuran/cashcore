@@ -120,7 +120,13 @@ function calculateBudgetSpent(
         budget.categoryIds.includes(t.categoryId) &&
         new Date(t.date) >= startDate &&
         new Date(t.date) <= endDate &&
-        (budget.walletIds.length === 0 || (t.walletId && budget.walletIds.includes(t.walletId)))
+        // budget.walletIds puede contener IDs de wallets Y de tarjetas de crédito/deudas.
+        // Una compra puede venir con walletId (cuenta normal) o con debtId (tarjeta),
+        // por eso hay que verificar ambos; antes solo se revisaba walletId y las compras
+        // con tarjeta nunca descontaban del presupuesto.
+        (budget.walletIds.length === 0 ||
+          (t.walletId && budget.walletIds.includes(t.walletId)) ||
+          (t.debtId && budget.walletIds.includes(t.debtId)))
     )
     .reduce((sum, t) => sum + t.amount, 0);
 }
@@ -193,9 +199,17 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         return w;
       });
 
-      // For transfers to debts, decrement debt balance (payment reduces debt)
       const debts = state.debts.map((d) => {
+        // Transferencia hacia la deuda: es un pago, reduce el saldo
         if (newTx.type === "transfer" && d.id === newTx.transferToDebtId) {
+          return { ...d, currentBalance: d.currentBalance - newTx.amount };
+        }
+        // Compra cargada a la tarjeta/deuda: es un gasto, aumenta el saldo
+        if (newTx.type === "expense" && d.id === newTx.debtId) {
+          return { ...d, currentBalance: d.currentBalance + newTx.amount };
+        }
+        // Ingreso directo a la deuda: reduce el saldo
+        if (newTx.type === "income" && d.id === newTx.debtId) {
           return { ...d, currentBalance: d.currentBalance - newTx.amount };
         }
         return d;
@@ -233,9 +247,17 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         return w;
       });
 
-      // Revert old transaction effect on debt (for transfers to debts)
+      // Revert old transaction effect on debt
       let debts = state.debts.map((d) => {
         if (oldTx.type === "transfer" && d.id === oldTx.transferToDebtId) {
+          return { ...d, currentBalance: d.currentBalance + oldTx.amount };
+        }
+        // Revertir compra: restar lo que se había sumado
+        if (oldTx.type === "expense" && d.id === oldTx.debtId) {
+          return { ...d, currentBalance: d.currentBalance - oldTx.amount };
+        }
+        // Revertir ingreso a deuda: sumar lo que se había restado
+        if (oldTx.type === "income" && d.id === oldTx.debtId) {
           return { ...d, currentBalance: d.currentBalance + oldTx.amount };
         }
         return d;
@@ -259,9 +281,15 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         return w;
       });
 
-      // Apply new transaction effect on debts (for transfers to debts)
+      // Apply new transaction effect on debts
       debts = debts.map((d) => {
         if (updatedTx.type === "transfer" && d.id === updatedTx.transferToDebtId) {
+          return { ...d, currentBalance: d.currentBalance - updatedTx.amount };
+        }
+        if (updatedTx.type === "expense" && d.id === updatedTx.debtId) {
+          return { ...d, currentBalance: d.currentBalance + updatedTx.amount };
+        }
+        if (updatedTx.type === "income" && d.id === updatedTx.debtId) {
           return { ...d, currentBalance: d.currentBalance - updatedTx.amount };
         }
         return d;
@@ -300,9 +328,15 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         return w;
       });
 
-      // Revert debt balance for transfers to debts
+      // Revert debt balance
       const debts = state.debts.map((d) => {
         if (tx.type === "transfer" && d.id === tx.transferToDebtId) {
+          return { ...d, currentBalance: d.currentBalance + tx.amount };
+        }
+        if (tx.type === "expense" && d.id === tx.debtId) {
+          return { ...d, currentBalance: d.currentBalance - tx.amount };
+        }
+        if (tx.type === "income" && d.id === tx.debtId) {
           return { ...d, currentBalance: d.currentBalance + tx.amount };
         }
         return d;

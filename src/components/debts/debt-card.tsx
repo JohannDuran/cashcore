@@ -11,30 +11,252 @@ import type { Debt, Transaction } from "@/types";
 import { Edit, Banknote, Calendar, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+// ══════════════════════════════════════════════════════════════════════════════
+// UTILIDADES PARA CÁLCULO DE CICLOS DE TARJETAS DE CRÉDITO
+// ══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Calcula la próxima fecha de pago basado en el día de corte configurado
- * o usa nextPaymentDate si está disponible
+ * Crea una fecha para un día específico en un mes/año dado.
+ * Si el día es mayor que los días del mes, usa el último día del mes.
+ */
+function dateForDay(year: number, month: number, day: number): Date {
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(day, lastDayOfMonth));
+}
+
+/**
+ * Agrega meses a una fecha, manejando correctamente el overflow de días.
+ */
+function addMonths(date: Date, months: number): Date {
+  const result = new Date(date);
+  result.setMonth(result.getMonth() + months);
+  return result;
+}
+
+/**
+ * Formatea fecha como YYYY-MM-DD para debug
+ */
+function fmt(d: Date): string {
+  return d.toISOString().split('T')[0];
+}
+
+/**
+ * Normaliza cualquier valor de fecha a una Date a medianoche LOCAL representando
+ * su día de calendario real.
+ *
+ * Las fechas de transacción se guardan en Postgres como `@db.Date` (medianoche UTC),
+ * por lo que llegan como "2026-10-15T00:00:00.000Z" o como Date en medianoche UTC.
+ * Si usáramos `new Date(valor)` + `setHours(0,0,0,0)` en una zona con offset negativo
+ * (ej. GMT-6), el día se correría a la fecha anterior. Para evitarlo tomamos los
+ * componentes de calendario en UTC y construimos una fecha local equivalente, de modo
+ * que coincida con los límites de ciclo que sí se construyen en hora local.
+ */
+function toCalendarDate(value: Date | string): Date {
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const [, y, m, d] = match;
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+    const parsed = new Date(value);
+    return new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
+  }
+  // Date de `@db.Date` = medianoche UTC: usar componentes UTC como día de calendario.
+  return new Date(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate());
+}
+
+/**
+ * Estructura que representa un ciclo de facturación completo.
+ */
+interface BillingCycle {
+  /** Inicio del periodo de compras (día después del corte anterior) */
+  purchaseStart: Date;
+  /** Fin del periodo de compras (día de corte) */
+  purchaseEnd: Date;
+  /** Fecha límite para pagar este ciclo */
+  paymentDueDate: Date;
+}
+
+/**
+ * Calcula los ciclos de facturación de una tarjeta de crédito.
+ * 
+ * @param statementDay - Día del mes en que se corta (1-31)
+ * @param paymentDueDay - Día del mes en que vence el pago (1-31)
+ * @param paymentDueMonthOffset - Meses después del corte que vence (0, 1, o 2)
+ * @param referenceDate - Fecha de referencia (default: hoy)
+ * 
+ * @returns Objeto con los ciclos calculados
+ */
+function calculateBillingCycles(
+  statementDay: number,
+  paymentDueDay: number,
+  paymentDueMonthOffset: number = 0,
+  referenceDate: Date = new Date()
+): {
+  /** Ciclo cerrado: el que ya se facturó y cuyo pago está por vencer o ya venció */
+  closedCycle: BillingCycle;
+  /** Ciclo actual: el que está en curso, acumulando compras */
+  currentCycle: BillingCycle;
+  /** Próximo ciclo: el siguiente (informativo) */
+  nextCycle: BillingCycle;
+} {
+  const today = new Date(referenceDate);
+  today.setHours(0, 0, 0, 0);
+
+  // Encontrar el último corte que ya ocurrió
+  let lastCutoff = dateForDay(today.getFullYear(), today.getMonth(), statementDay);
+  if (lastCutoff > today) {
+    // El corte de este mes aún no llega, usar el del mes anterior
+    lastCutoff = dateForDay(today.getFullYear(), today.getMonth() - 1, statementDay);
+  }
+
+  // Corte anterior al último (inicio del ciclo cerrado)
+  const prevCutoff = dateForDay(
+    lastCutoff.getFullYear(),
+    lastCutoff.getMonth() - 1,
+    statementDay
+  );
+
+  // Próximo corte (fin del ciclo actual)
+  const nextCutoff = dateForDay(
+    lastCutoff.getFullYear(),
+    lastCutoff.getMonth() + 1,
+    statementDay
+  );
+
+  // Corte después del próximo (fin del siguiente ciclo)
+  const futureNextCutoff = dateForDay(
+    nextCutoff.getFullYear(),
+    nextCutoff.getMonth() + 1,
+    statementDay
+  );
+
+  // Calcular fechas de pago basadas en el offset de meses
+  // La fecha de pago es: mes del corte + offset, día paymentDueDay
+  const closedPaymentDue = dateForDay(
+    lastCutoff.getFullYear(),
+    lastCutoff.getMonth() + paymentDueMonthOffset,
+    paymentDueDay
+  );
+
+  const currentPaymentDue = dateForDay(
+    nextCutoff.getFullYear(),
+    nextCutoff.getMonth() + paymentDueMonthOffset,
+    paymentDueDay
+  );
+
+  const nextPaymentDue = dateForDay(
+    futureNextCutoff.getFullYear(),
+    futureNextCutoff.getMonth() + paymentDueMonthOffset,
+    paymentDueDay
+  );
+
+  // Construir los ciclos
+  // El día de inicio de compras es el día DESPUÉS del corte anterior
+  const closedCycle: BillingCycle = {
+    purchaseStart: new Date(prevCutoff.getTime() + 24 * 60 * 60 * 1000), // día siguiente al corte anterior
+    purchaseEnd: lastCutoff,
+    paymentDueDate: closedPaymentDue,
+  };
+
+  const currentCycle: BillingCycle = {
+    purchaseStart: new Date(lastCutoff.getTime() + 24 * 60 * 60 * 1000), // día siguiente al último corte
+    purchaseEnd: nextCutoff,
+    paymentDueDate: currentPaymentDue,
+  };
+
+  const nextCycle: BillingCycle = {
+    purchaseStart: new Date(nextCutoff.getTime() + 24 * 60 * 60 * 1000),
+    purchaseEnd: futureNextCutoff,
+    paymentDueDate: nextPaymentDue,
+  };
+
+  return { closedCycle, currentCycle, nextCycle };
+}
+
+/**
+ * Suma el monto de transacciones dentro de un rango de fechas [start, end] (inclusivo).
+ */
+function sumTransactionsInRange(
+  debt: Debt,
+  transactions: Transaction[],
+  kind: "purchase" | "payment",
+  start: Date,
+  end: Date
+): number {
+  const startTime = new Date(start);
+  startTime.setHours(0, 0, 0, 0);
+  const endTime = new Date(end);
+  endTime.setHours(23, 59, 59, 999);
+
+  return transactions
+    .filter((tx) => {
+      const matches =
+        kind === "purchase"
+          ? tx.type === "expense" && tx.debtId === debt.id
+          : tx.type === "transfer" && tx.transferToDebtId === debt.id;
+      if (!matches) return false;
+
+      // Usar el día de calendario real de la transacción (ver toCalendarDate):
+      // evita el corrimiento de un día por zona horaria con fechas `@db.Date`.
+      const txDate = toCalendarDate(tx.date as unknown as Date | string);
+      return txDate >= startTime && txDate <= endTime;
+    })
+    .reduce((sum, tx) => sum + tx.amount, 0);
+}
+
+/**
+ * Calcula la próxima fecha de pago para mostrar en la UI.
  */
 function getNextPaymentDate(debt: Debt): Date | null {
-  // Si tiene nextPaymentDate configurado, usarlo
+  // Si tiene nextPaymentDate configurado manualmente, usarlo
   if (debt.nextPaymentDate) {
-    return new Date(debt.nextPaymentDate);
+    const val = debt.nextPaymentDate;
+    if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
+    
+    const str = String(val);
+    if (str.includes('T')) {
+      const datePart = str.split('T')[0];
+      const parts = datePart.split('-').map(Number);
+      if (parts.length === 3 && parts.every(n => !isNaN(n))) {
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      }
+    }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const [year, month, day] = str.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+    const parsed = new Date(str);
+    return isNaN(parsed.getTime()) ? null : parsed;
   }
   
-  // Si solo tiene día de pago, calcular la próxima fecha
+  // Si tiene configuración de ciclos, calcular la próxima fecha de pago
+  if (debt.statementDay && debt.paymentDueDay) {
+    const cycles = calculateBillingCycles(
+      debt.statementDay,
+      debt.paymentDueDay,
+      debt.paymentDueMonthOffset ?? 0
+    );
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Si la fecha de pago del ciclo cerrado aún no pasa, es la próxima
+    if (cycles.closedCycle.paymentDueDate >= today) {
+      return cycles.closedCycle.paymentDueDate;
+    }
+    // Si no, la del ciclo actual
+    return cycles.currentCycle.paymentDueDate;
+  }
+  
+  // Fallback: solo día de pago sin día de corte
   if (debt.paymentDueDay) {
     const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    
-    // Crear fecha con el día de pago en el mes actual
-    let nextDate = new Date(currentYear, currentMonth, debt.paymentDueDay);
-    
-    // Si ya pasó este mes, ir al siguiente
+    today.setHours(0, 0, 0, 0);
+    let nextDate = new Date(today.getFullYear(), today.getMonth(), debt.paymentDueDay);
     if (nextDate < today) {
-      nextDate = new Date(currentYear, currentMonth + 1, debt.paymentDueDay);
+      nextDate = new Date(today.getFullYear(), today.getMonth() + 1, debt.paymentDueDay);
     }
-    
     return nextDate;
   }
   
@@ -42,73 +264,10 @@ function getNextPaymentDate(debt: Debt): Date | null {
 }
 
 /**
- * Calcula el inicio del período de facturación actual
- * Es el día de pago del mes anterior a la próxima fecha límite
- */
-function getBillingPeriodStart(debt: Debt, nextPaymentDate: Date | null): Date | null {
-  if (!nextPaymentDate) return null;
-  
-  // El inicio del período es el día de pago del mes anterior
-  const periodStart = new Date(nextPaymentDate);
-  periodStart.setMonth(periodStart.getMonth() - 1);
-  
-  // Agregar un día después de la fecha límite anterior (el período empieza después del pago anterior)
-  periodStart.setDate(periodStart.getDate() + 1);
-  
-  // Si la deuda empezó después de esta fecha, usar la fecha de inicio de la deuda
-  const debtStartDate = new Date(debt.startDate);
-  if (debtStartDate > periodStart) {
-    return debtStartDate;
-  }
-  
-  return periodStart;
-}
-
-/**
- * Calcula los pagos realizados en el período de facturación actual
- * Solo cuenta transacciones tipo "transfer" con transferToDebtId === debt.id
- */
-function calculatePeriodPayments(
-  debt: Debt,
-  transactions: Transaction[],
-  periodStart: Date | null,
-  periodEnd: Date | null
-): number {
-  if (!periodStart || !periodEnd) return 0;
-  
-  // Normalizar fechas para comparación (solo fecha, sin hora)
-  const startDate = new Date(periodStart);
-  startDate.setHours(0, 0, 0, 0);
-  
-  const endDate = new Date(periodEnd);
-  endDate.setHours(23, 59, 59, 999);
-  
-  // Filtrar transacciones que son pagos a esta deuda en el período actual
-  const periodPayments = transactions.filter((tx) => {
-    // Debe ser una transferencia a esta deuda
-    if (tx.type !== "transfer" || tx.transferToDebtId !== debt.id) {
-      return false;
-    }
-    
-    // Verificar que esté dentro del período de facturación
-    const txDate = new Date(tx.date);
-    txDate.setHours(0, 0, 0, 0);
-    
-    return txDate >= startDate && txDate <= endDate;
-  });
-  
-  // Sumar todos los pagos del período
-  return periodPayments.reduce((sum, tx) => sum + tx.amount, 0);
-}
-
-/**
  * Formatea la fecha de pago mostrando día y mes
  */
 function formatPaymentDueDate(date: Date): string {
-  return date.toLocaleDateString("es-MX", { 
-    day: "numeric", 
-    month: "short" 
-  });
+  return date.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
 }
 
 /**
@@ -130,15 +289,29 @@ function getPaymentStatus(nextPaymentDate: Date | null): "ok" | "warning" | "ove
   return "ok";
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ══════════════════════════════════════════════════════════════════════════════
+
 interface DebtCardProps {
   debt: Debt;
   transactions?: Transaction[];
   onEdit: () => void;
   onPay?: () => void;
+  onMarkStatementPaid?: () => void;
+  onEditAccruedNextCycle?: () => void;
   onClick?: () => void;
 }
 
-export function DebtCard({ debt, transactions = [], onEdit, onPay, onClick }: DebtCardProps) {
+export function DebtCard({ 
+  debt, 
+  transactions = [], 
+  onEdit, 
+  onPay, 
+  onMarkStatementPaid, 
+  onEditAccruedNextCycle, 
+  onClick 
+}: DebtCardProps) {
   const paidAmount = debt.originalAmount - debt.currentBalance;
   const paidPercentage = debt.originalAmount > 0 
     ? Math.min(Math.round((paidAmount / debt.originalAmount) * 100), 100)
@@ -147,17 +320,115 @@ export function DebtCard({ debt, transactions = [], onEdit, onPay, onClick }: De
   const isFullyPaid = debt.currentBalance <= 0;
   const hasSaldoAFavor = debt.currentBalance < 0;
   
+  // ── Calcular ciclos de facturación ──
+  const hasStatementConfig = !!(debt.statementDay && debt.paymentDueDay);
+  
+  let requiredThisCycle: number | null = null;
+  let accruedNextCycle = 0;
+  let closedCycleInfo: { start: string; end: string; paymentDue: string } | null = null;
+  let currentCycleInfo: { start: string; end: string } | null = null;
+  
+  if (hasStatementConfig) {
+    const cycles = calculateBillingCycles(
+      debt.statementDay!,
+      debt.paymentDueDay!,
+      debt.paymentDueMonthOffset ?? 0
+    );
+    
+    // Info para mostrar en UI
+    closedCycleInfo = {
+      start: fmt(cycles.closedCycle.purchaseStart),
+      end: fmt(cycles.closedCycle.purchaseEnd),
+      paymentDue: fmt(cycles.closedCycle.paymentDueDate),
+    };
+    currentCycleInfo = {
+      start: fmt(cycles.currentCycle.purchaseStart),
+      end: fmt(cycles.currentCycle.purchaseEnd),
+    };
+    
+    // DEBUG
+    // console.log(`[DebtCard ${debt.name}] Ciclos calculados:`, {
+    //   closed: closedCycleInfo,
+    //   current: currentCycleInfo,
+    //   offset: debt.paymentDueMonthOffset ?? 0,
+    // });
+    
+    // 1) CICLO CERRADO: Compras del periodo anterior - pagos realizados después del corte
+    const closedPurchases = sumTransactionsInRange(
+      debt, 
+      transactions, 
+      "purchase", 
+      cycles.closedCycle.purchaseStart, 
+      cycles.closedCycle.purchaseEnd
+    );
+    
+    // Pagos realizados desde el día después del corte hasta la fecha límite
+    const paymentsForClosedCycle = sumTransactionsInRange(
+      debt,
+      transactions,
+      "payment",
+      cycles.currentCycle.purchaseStart, // día después del último corte
+      cycles.closedCycle.paymentDueDate
+    );
+    
+    // Verificar si el usuario marcó el ciclo como pagado
+    const markedPaid = !!debt.statementPaidUntil &&
+      new Date(debt.statementPaidUntil).setHours(0, 0, 0, 0) >= 
+      cycles.closedCycle.purchaseEnd.setHours(0, 0, 0, 0);
+    
+    requiredThisCycle = markedPaid ? 0 : Math.max(0, closedPurchases - paymentsForClosedCycle);
+    
+    // 2) CICLO ACTUAL: Compras acumulándose para el próximo estado de cuenta
+    const baseAdjustment = debt.accruedNextCycleOverride ?? 0;
+    
+    // Si hay un ajuste base con fecha, solo sumar compras desde esa fecha en adelante.
+    // accruedOverrideDate es un timestamp (momento en que se fijó la base); se toma
+    // su día de calendario local, y se incluyen las compras fechadas ESE DÍA o después.
+    // (Antes se usaba setHours sobre el timestamp, lo que con zonas GMT negativas podía
+    //  correr el límite un día; ahora se compara por día de calendario.)
+    let purchasesStart = cycles.currentCycle.purchaseStart;
+    if (debt.accruedNextCycleOverride != null && debt.accruedOverrideDate) {
+      const overrideDay = new Date(debt.accruedOverrideDate);
+      const localOverrideDay = new Date(
+        overrideDay.getFullYear(),
+        overrideDay.getMonth(),
+        overrideDay.getDate()
+      );
+      if (localOverrideDay > purchasesStart) {
+        purchasesStart = localOverrideDay;
+      }
+    }
+    
+    const currentPurchases = sumTransactionsInRange(
+      debt,
+      transactions,
+      "purchase",
+      purchasesStart,
+      cycles.currentCycle.purchaseEnd
+    );
+    
+    accruedNextCycle = baseAdjustment + currentPurchases;
+    
+    // DEBUG
+    // const relevantTxs = transactions.filter(tx => tx.type === "expense" && tx.debtId === debt.id);
+    // console.log(`[DebtCard ${debt.name}] Cálculos:`, {
+    //   closedPurchases,
+    //   paymentsForClosedCycle,
+    //   markedPaid,
+    //   requiredThisCycle,
+    //   baseAdjustment,
+    //   purchasesStart: fmt(purchasesStart),
+    //   currentPurchases,
+    //   accruedNextCycle,
+    //   totalTxsWithDebtId: relevantTxs.length,
+    // });
+  }
+  
+  const requiredPaymentCompleted = requiredThisCycle !== null && requiredThisCycle === 0;
+  
   // Calcular fecha de pago y estado
   const nextPaymentDate = getNextPaymentDate(debt);
   const paymentStatus = getPaymentStatus(nextPaymentDate);
-  
-  // Calcular pago mínimo restante del período actual
-  const billingPeriodStart = getBillingPeriodStart(debt, nextPaymentDate);
-  const periodPayments = calculatePeriodPayments(debt, transactions, billingPeriodStart, nextPaymentDate);
-  const remainingMinimumPayment = debt.minimumPayment 
-    ? Math.max(0, debt.minimumPayment - periodPayments)
-    : null;
-  const minimumPaymentCompleted = remainingMinimumPayment !== null && remainingMinimumPayment === 0;
 
   return (
     <Card
@@ -254,53 +525,94 @@ export function DebtCard({ debt, transactions = [], onEdit, onPay, onClick }: De
           </div>
         </div>
 
-        {/* Detalles de pago */}
-        {(debt.minimumPayment || debt.paymentDueDay || nextPaymentDate || debt.interestRate) && (
+        {/* Detalles de pago - Solo si hay configuración de ciclos o pago mínimo */}
+        {(hasStatementConfig || debt.minimumPayment || debt.paymentDueDay || nextPaymentDate || debt.interestRate) && (
           <div className="mt-3 space-y-2 rounded-lg bg-muted/50 p-2">
             <div className="grid grid-cols-2 gap-2">
-              {debt.minimumPayment && (
+              
+              {/* CICLO CERRADO: Pago requerido */}
+              {hasStatementConfig && requiredThisCycle !== null && (
                 <div>
                   <p className="text-[10px] text-muted-foreground">
-                    {minimumPaymentCompleted ? "Pago mínimo completado ✓" : "Pago mínimo restante"}
+                    {requiredPaymentCompleted ? "Pago del ciclo cubierto ✓" : "Pago requerido este ciclo"}
                   </p>
                   <div className="flex items-center gap-1">
-                    {minimumPaymentCompleted ? (
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                    ) : remainingMinimumPayment !== null && remainingMinimumPayment < debt.minimumPayment ? (
-                      <span className="text-[9px] text-amber-600 font-medium">Parcial</span>
-                    ) : null}
+                    {requiredPaymentCompleted && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
                     <CurrencyDisplay
-                      amount={remainingMinimumPayment ?? debt.minimumPayment}
+                      amount={requiredThisCycle}
                       currency={debt.currency}
                       size="sm"
-                      className={cn(
-                        "font-medium",
-                        minimumPaymentCompleted && "text-emerald-600"
-                      )}
+                      className={cn("font-medium", requiredPaymentCompleted && "text-emerald-600")}
                     />
                   </div>
-                  {periodPayments > 0 && !minimumPaymentCompleted && (
+                  {closedCycleInfo && (
                     <p className="text-[9px] text-muted-foreground mt-0.5">
-                      Abonado: <CurrencyDisplay amount={periodPayments} currency={debt.currency} size="sm" type="income" /> de{" "}
-                      <CurrencyDisplay amount={debt.minimumPayment} currency={debt.currency} size="sm" />
+                      Compras {closedCycleInfo.start.slice(5)} al {closedCycleInfo.end.slice(5)}
                     </p>
+                  )}
+                  {!requiredPaymentCompleted && onMarkStatementPaid && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onMarkStatementPaid(); }}
+                      className="text-[9px] text-primary hover:underline cursor-pointer mt-0.5"
+                    >
+                      Marcar como pagado
+                    </button>
                   )}
                 </div>
               )}
-              {/* Fecha de pago con día y mes */}
+
+              {/* CICLO ACTUAL: Acumulado próximo corte */}
+              {hasStatementConfig && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Acumulado próximo corte</p>
+                  <CurrencyDisplay
+                    amount={accruedNextCycle}
+                    currency={debt.currency}
+                    size="sm"
+                    type={accruedNextCycle > 0 ? "expense" : "neutral"}
+                    className="font-medium"
+                  />
+                  {currentCycleInfo && (
+                    <p className="text-[9px] text-muted-foreground mt-0.5">
+                      {debt.accruedNextCycleOverride != null 
+                        ? `Base: ${debt.accruedNextCycleOverride.toLocaleString()} + compras` 
+                        : `Compras ${currentCycleInfo.start.slice(5)} al ${currentCycleInfo.end.slice(5)}`}
+                    </p>
+                  )}
+                  {onEditAccruedNextCycle && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); onEditAccruedNextCycle(); }}
+                      className="text-[9px] text-primary hover:underline cursor-pointer"
+                    >
+                      {debt.accruedNextCycleOverride != null ? "Editar / Resetear" : "Ajustar base"}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Fallback: Pago mínimo (sin configuración de ciclos) */}
+              {!hasStatementConfig && debt.minimumPayment && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Pago mínimo</p>
+                  <CurrencyDisplay
+                    amount={debt.minimumPayment}
+                    currency={debt.currency}
+                    size="sm"
+                    className="font-medium"
+                  />
+                </div>
+              )}
+
+              {/* Fecha límite de pago */}
               {nextPaymentDate && (
                 <div>
                   <p className="text-[10px] text-muted-foreground">Fecha límite de pago</p>
                   <div className="flex items-center gap-1">
-                    {paymentStatus === "overdue" && (
-                      <AlertCircle className="w-3 h-3 text-red-500" />
-                    )}
-                    {paymentStatus === "warning" && (
-                      <Calendar className="w-3 h-3 text-amber-500" />
-                    )}
-                    {paymentStatus === "ok" && (
-                      <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                    )}
+                    {paymentStatus === "overdue" && <AlertCircle className="w-3 h-3 text-red-500" />}
+                    {paymentStatus === "warning" && <Calendar className="w-3 h-3 text-amber-500" />}
+                    {paymentStatus === "ok" && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
                     <p className={cn(
                       "text-xs font-medium",
                       paymentStatus === "overdue" && "text-red-500",
@@ -309,15 +621,12 @@ export function DebtCard({ debt, transactions = [], onEdit, onPay, onClick }: De
                       {formatPaymentDueDate(nextPaymentDate)}
                     </p>
                   </div>
-                  {paymentStatus === "overdue" && (
-                    <p className="text-[10px] text-red-500">Vencido</p>
-                  )}
-                  {paymentStatus === "warning" && (
-                    <p className="text-[10px] text-amber-500">Próximo a vencer</p>
-                  )}
+                  {paymentStatus === "overdue" && <p className="text-[10px] text-red-500">Vencido</p>}
+                  {paymentStatus === "warning" && <p className="text-[10px] text-amber-500">Próximo a vencer</p>}
                 </div>
               )}
-              {/* Fallback: solo día si no hay fecha completa */}
+
+              {/* Fallback: Solo día de pago */}
               {!nextPaymentDate && debt.paymentDueDay && (
                 <div>
                   <p className="text-[10px] text-muted-foreground">Día de pago</p>
@@ -325,6 +634,8 @@ export function DebtCard({ debt, transactions = [], onEdit, onPay, onClick }: De
                 </div>
               )}
             </div>
+
+            {/* Tasa de interés */}
             {debt.interestRate && (
               <div className="border-t border-border/60 pt-2">
                 <div className="flex items-center justify-between">

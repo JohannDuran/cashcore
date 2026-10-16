@@ -18,6 +18,7 @@ model User {
   name            String
   avatarUrl       String?
   defaultCurrency String   @default("MXN")
+  timezone        String?  // Zona horaria preferida (ej: "America/Mexico_City"). Null = usar navegador o inferir de moneda
   preferredLocale String   @default("es-MX")
   theme           String   @default("system")
   createdAt       DateTime @default(now())
@@ -195,10 +196,15 @@ model Debt {
   currentBalance  Float
   interestRate    Float?
   minimumPayment  Float?
-  paymentDueDay   Int?
-  nextPaymentDate DateTime? @db.Date
-  startDate       DateTime  @db.Date
-  endDate         DateTime? @db.Date
+  statementDay      Int?      // Día de corte del estado de cuenta (1-31)
+  paymentDueDay     Int?      // Día límite de pago (1-31)
+  paymentDueMonthOffset Int   @default(0) // Meses después del corte que vence el pago (0=mismo mes, 1=mes siguiente, 2=dos meses)
+  statementPaidUntil DateTime? // Fecha de corte hasta la cual el ciclo cerrado ya fue marcado como pagado
+  accruedNextCycleOverride Float? // Ajuste base del acumulado próximo corte
+  accruedOverrideDate      DateTime? // Fecha en que se configuró el ajuste (solo sumar compras posteriores)
+  nextPaymentDate DateTime? // Próxima fecha límite de pago (con hora para evitar desfase UTC)
+  startDate       DateTime
+  endDate         DateTime?
   icon            String
   color           String
   isActive        Boolean   @default(true)

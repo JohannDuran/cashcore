@@ -313,16 +313,26 @@ export function TransactionFormModal() {
 
   const getImpactMessage = () => {
     if (!editTx) return null;
+    // El origen puede ser un wallet o una tarjeta/deuda (compra con tarjeta de crédito).
     const originWallet = wallets.find((w) => w.id === editTx.walletId);
-    if (editTx.type === "expense") return `Se restaurarán ${formatCurrency(editTx.amount)} al balance de ${originWallet?.name}.`;
-    if (editTx.type === "income") return `Se restarán ${formatCurrency(editTx.amount)} del balance de ${originWallet?.name}.`;
-    
+    const originDebt = debts.find((d) => d.id === editTx.debtId);
+    const originName = originWallet?.name || originDebt?.name || "cuenta desconocida";
+
+    if (editTx.type === "expense") {
+      // En una tarjeta/deuda, revertir una compra reduce el saldo pendiente (lo que debes).
+      if (originDebt) {
+        return `Se reducirán ${formatCurrency(editTx.amount)} del saldo pendiente de ${originName}.`;
+      }
+      return `Se restaurarán ${formatCurrency(editTx.amount)} al balance de ${originName}.`;
+    }
+    if (editTx.type === "income") return `Se restarán ${formatCurrency(editTx.amount)} del balance de ${originName}.`;
+
     // Para transferencias, buscar el destino en wallets o deudas
     const destWallet = wallets.find((w) => w.id === editTx.transferToWalletId);
     const destDebt = debts.find((d) => d.id === editTx.transferToDebtId);
     const destName = destWallet?.name || destDebt?.name || "destino desconocido";
-    
-    return `Se devolverán ${formatCurrency(editTx.amount)} a ${originWallet?.name} y se restarán de ${destName}.`;
+
+    return `Se devolverán ${formatCurrency(editTx.amount)} a ${originName} y se restarán de ${destName}.`;
   };
 
   // Función para ejecutar la transacción (usada tanto por submit normal como confirmación)
@@ -340,10 +350,17 @@ export function TransactionFormModal() {
     const sourceDebt = debts.find((d) => d.id === currentWalletId);
     const currency = sourceWallet?.currency || sourceDebt?.currency || "MXN" as const;
 
+    // Si el origen es una tarjeta/deuda, el objeto optimista debe llevar debtId
+    // (no walletId) para que la UI refleje de inmediato la compra en la tarjeta.
+    // El backend igualmente resuelve el tipo de cuenta a partir del id recibido.
+    const isSourceDebt = !!sourceDebt && !sourceWallet;
+
     const txData = {
       type, amount: numAmount,
       currency,
-      walletId: currentWalletId, userId: user?.id || "",
+      walletId: isSourceDebt ? null : currentWalletId,
+      debtId: isSourceDebt ? currentWalletId : null,
+      userId: user?.id || "",
       categoryId: type === "transfer" ? "cat-transfer" : currentCategoryId,
       description: description || `${typeLabels[type]} - ${new Date(date).toLocaleDateString("es-MX")}`,
       note: note || undefined, date, isRecurring,

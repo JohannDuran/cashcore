@@ -53,6 +53,66 @@ const debtColors = [
   "#6366F1", "#3B82F6", "#06B6D4", "#14B8A6", "#22C55E",
 ];
 
+/**
+ * Normaliza un valor de fecha (Date | string | null) a formato YYYY-MM-DD
+ * para usarlo en un input type="date". Retorna "" si no es válido.
+ * Parsea strings YYYY-MM-DD como fecha local (sin desfase UTC).
+ */
+function toDateInputValue(value: unknown): string {
+  if (!value) return "";
+  
+  const str = String(value);
+  
+  // Si es formato ISO con T (ej: "2026-10-28T00:00:00.000Z"), extraer solo la fecha
+  // y parsear como local para evitar desfase
+  if (str.includes('T')) {
+    const datePart = str.split('T')[0];
+    const [year, month, day] = datePart.split('-').map(Number);
+    if (year && month && day) {
+      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+  }
+  
+  // Si es formato YYYY-MM-DD simple, usarlo directo
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+  
+  // Fallback: parsear como Date y extraer componentes locales
+  const date = value instanceof Date ? value : new Date(str);
+  if (isNaN(date.getTime())) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * Calcula la próxima fecha límite de pago (formato YYYY-MM-DD) a partir del día de pago.
+ * Usa el día del mes actual si aún no ha pasado; de lo contrario, el mes siguiente.
+ * Ajusta el día a meses más cortos (ej. día 31 en febrero).
+ */
+function computeNextPaymentDate(dueDay: number): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dayFor = (year: number, month: number): Date => {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    return new Date(year, month, Math.min(dueDay, lastDay));
+  };
+
+  let next = dayFor(today.getFullYear(), today.getMonth());
+  if (next < today) {
+    next = dayFor(today.getFullYear(), today.getMonth() + 1);
+  }
+
+  // Formatear como YYYY-MM-DD en hora local (sin desfase por UTC)
+  const y = next.getFullYear();
+  const m = String(next.getMonth() + 1).padStart(2, "0");
+  const d = String(next.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 export function DebtFormModal() {
   const { 
     activeModal, 
@@ -76,8 +136,13 @@ export function DebtFormModal() {
   const [currentBalance, setCurrentBalance] = useState("");
   const [interestRate, setInterestRate] = useState("");
   const [minimumPayment, setMinimumPayment] = useState("");
+  const [statementDay, setStatementDay] = useState("");
   const [paymentDueDay, setPaymentDueDay] = useState("");
+  const [paymentDueMonthOffset, setPaymentDueMonthOffset] = useState("0");
   const [nextPaymentDate, setNextPaymentDate] = useState("");
+  // Indica si el usuario editó manualmente la próxima fecha límite de pago.
+  // Mientras sea false, la fecha se autocalcula desde el día límite de pago.
+  const [nextPaymentDateManual, setNextPaymentDateManual] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [icon, setIcon] = useState("CreditCard");
@@ -93,8 +158,11 @@ export function DebtFormModal() {
     setCurrentBalance("");
     setInterestRate("");
     setMinimumPayment("");
+    setStatementDay("");
     setPaymentDueDay("");
+    setPaymentDueMonthOffset("0");
     setNextPaymentDate("");
+    setNextPaymentDateManual(false);
     setStartDate(new Date().toISOString().split("T")[0]);
     setEndDate("");
     setIcon("CreditCard");
@@ -111,10 +179,15 @@ export function DebtFormModal() {
       setCurrentBalance(editDebt.currentBalance.toString());
       setInterestRate(editDebt.interestRate?.toString() || "");
       setMinimumPayment(editDebt.minimumPayment?.toString() || "");
+      setStatementDay(editDebt.statementDay?.toString() || "");
       setPaymentDueDay(editDebt.paymentDueDay?.toString() || "");
-      setNextPaymentDate(editDebt.nextPaymentDate?.toString().split("T")[0] || "");
-      setStartDate(editDebt.startDate?.toString().split("T")[0] || "");
-      setEndDate(editDebt.endDate?.toString().split("T")[0] || "");
+      setPaymentDueMonthOffset((editDebt.paymentDueMonthOffset ?? 0).toString());
+      const existingNextDate = toDateInputValue(editDebt.nextPaymentDate);
+      setNextPaymentDate(existingNextDate);
+      // Si ya hay una fecha guardada, se respeta como manual (no se autocalcula al editar)
+      setNextPaymentDateManual(!!existingNextDate);
+      setStartDate(toDateInputValue(editDebt.startDate) || new Date().toISOString().split("T")[0]);
+      setEndDate(toDateInputValue(editDebt.endDate));
       setIcon(editDebt.icon);
       setColor(editDebt.color);
       setNotes(editDebt.notes || "");
@@ -160,7 +233,13 @@ export function DebtFormModal() {
     const parsedCurrentBalance = parseFloat(currentBalance) || parsedOriginalAmount;
     const parsedInterestRate = interestRate ? parseFloat(interestRate) : null;
     const parsedMinimumPayment = minimumPayment ? parseFloat(minimumPayment) : null;
+    const parsedStatementDay = statementDay ? parseInt(statementDay, 10) : null;
     const parsedPaymentDueDay = paymentDueDay ? parseInt(paymentDueDay, 10) : null;
+
+    if (parsedStatementDay && (parsedStatementDay < 1 || parsedStatementDay > 31)) {
+      toast.error("El día de corte debe estar entre 1 y 31");
+      return;
+    }
 
     if (parsedPaymentDueDay && (parsedPaymentDueDay < 1 || parsedPaymentDueDay > 31)) {
       toast.error("El día de pago debe estar entre 1 y 31");
@@ -179,7 +258,9 @@ export function DebtFormModal() {
       currentBalance: parsedCurrentBalance,
       interestRate: parsedInterestRate,
       minimumPayment: parsedMinimumPayment,
+      statementDay: parsedStatementDay,
       paymentDueDay: parsedPaymentDueDay,
+      paymentDueMonthOffset: parseInt(paymentDueMonthOffset, 10) || 0,
       nextPaymentDate: nextPaymentDate || null,
       startDate,
       endDate: endDate || null,
@@ -336,20 +417,70 @@ export function DebtFormModal() {
               />
             </div>
             <div>
-              <Label htmlFor="payment-due-day">Día de corte</Label>
+              <Label htmlFor="statement-day">Día de corte</Label>
               <Input
-                id="payment-due-day"
+                id="statement-day"
                 type="number"
                 min="1"
                 max="31"
                 step="1"
                 placeholder="15"
-                value={paymentDueDay}
-                onChange={(e) => setPaymentDueDay(e.target.value)}
+                value={statementDay}
+                onChange={(e) => setStatementDay(e.target.value)}
                 className="mt-1"
               />
             </div>
           </div>
+
+          {/* Día límite de pago */}
+          <div>
+            <Label htmlFor="payment-due-day">Día límite de pago</Label>
+            <Input
+              id="payment-due-day"
+              type="number"
+              min="1"
+              max="31"
+              step="1"
+              placeholder="5"
+              value={paymentDueDay}
+              onChange={(e) => setPaymentDueDay(e.target.value)}
+              onBlur={() => {
+                // Al salir del input, recalcular la próxima fecha límite de pago
+                // usando el día ingresado. Cambiar el día de pago siempre "gana"
+                // y reinicia el modo manual.
+                const day = parseInt(paymentDueDay, 10);
+                if (day >= 1 && day <= 31) {
+                  setNextPaymentDate(computeNextPaymentDate(day));
+                  setNextPaymentDateManual(false);
+                }
+              }}
+              className="mt-1"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Día del mes en que vence el pago del estado de cuenta
+            </p>
+          </div>
+
+          {/* Mes de vencimiento del pago (offset) */}
+          {(type === "credit_card" || type === "department_store") && statementDay && paymentDueDay && (
+            <div>
+              <Label htmlFor="payment-due-month-offset">¿En qué mes vence el pago?</Label>
+              <select
+                id="payment-due-month-offset"
+                value={paymentDueMonthOffset}
+                onChange={(e) => setPaymentDueMonthOffset(e.target.value)}
+                className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+              >
+                <option value="0">Mismo mes del corte</option>
+                <option value="1">Mes siguiente al corte</option>
+                <option value="2">Dos meses después del corte</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Ejemplo: Si corta el día 8 y pago vence el 28 del mismo mes = "Mismo mes". 
+                Si corta el 15 y pago vence el 5 del mes siguiente = "Mes siguiente".
+              </p>
+            </div>
+          )}
 
           {/* Fecha límite de pago */}
           <div>
@@ -358,11 +489,15 @@ export function DebtFormModal() {
               id="next-payment-date"
               type="date"
               value={nextPaymentDate}
-              onChange={(e) => setNextPaymentDate(e.target.value)}
+              onChange={(e) => {
+                setNextPaymentDate(e.target.value);
+                // El usuario tomó control manual de la fecha
+                setNextPaymentDateManual(true);
+              }}
               className="mt-1"
             />
             <p className="text-[10px] text-muted-foreground mt-1">
-              Si no se especifica, se calculará automáticamente usando el día de corte
+              Si no se especifica, se calculará automáticamente usando el día límite de pago
             </p>
           </div>
 

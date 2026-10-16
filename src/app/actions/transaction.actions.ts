@@ -14,7 +14,8 @@ interface TransactionFormInput {
   type: string;
   amount: number;
   currency: string;
-  walletId: string;
+  walletId?: string | null;
+  debtId?: string | null;
   categoryId: string;
   description: string;
   note?: string | null;
@@ -32,7 +33,8 @@ function mapFrontendToDb(data: TransactionFormInput) {
     type: data.type,
     amount: data.amount,
     currency: data.currency,
-    walletId: data.walletId,
+    walletId: data.walletId || null,
+    debtId: data.debtId || null,
     categoryId: data.categoryId,
     description: data.description,
     note: data.note ?? null,
