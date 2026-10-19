@@ -238,7 +238,7 @@ export function WalletFormModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[480px] max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar wallet" : "Nuevo wallet"}</DialogTitle>
           <DialogDescription>
