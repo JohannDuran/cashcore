@@ -10,3 +10,4 @@
 - Prefers dialog/forms to NOT auto-focus the first input (especially name/title fields) when they open, particularly on mobile, to avoid accidental renames and the keyboard popping up; editing should begin only when the user explicitly taps/clicks an input or select. Confidence: 0.9
 - Prefers interactive cards (e.g., wallet, debt) to be fully clickable to open their edit form, not limited to a separate "edit" button. Confidence: 0.85
 - Prefers explicit edit affordances (e.g., a pencil/edit button) on transaction rows in addition to any row-level click. Confidence: 0.8
+- Prefers settings/profile forms to have an explicit "Guardar cambios" (save) button and to persist edits to the backend, rather than only updating local state or relying on auto-save. Confidence: 0.8

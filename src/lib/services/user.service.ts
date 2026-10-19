@@ -17,7 +17,7 @@ export const userService = {
     });
   },
 
-  async updateProfile(userId: string, data: { name?: string; defaultCurrency?: string; theme?: string }) {
+  async updateProfile(userId: string, data: { name?: string; defaultCurrency?: string; theme?: string; timezone?: string | null }) {
     return prisma.user.update({
       where: { id: userId },
       data,

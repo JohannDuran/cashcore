@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useCashCoreStore } from "@/store";
 import { useTheme } from "next-themes";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,10 +24,13 @@ import { toast } from "sonner";
 import type { Currency } from "@/types";
 import { CategoryManagerCard } from "@/components/settings/category-manager-card";
 import { TagManagerCard } from "@/components/settings/tag-manager-card";
+import { updateProfileAction } from "@/app/actions/user.actions";
 
 export default function SettingsPage() {
   const { user, updateUser } = useCashCoreStore();
   const { theme, setTheme } = useTheme();
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
 
   const themeOptions = [
     { value: "light", label: "Claro", icon: Sun },
@@ -35,6 +39,30 @@ export default function SettingsPage() {
   ];
 
   if (!user) return null;
+  const currentUser = user;
+
+  async function handleSaveProfile() {
+    if (!currentUser.name.trim()) {
+      toast.error("El nombre no puede estar vacío");
+      return;
+    }
+    setSavingProfile(true);
+    const res = await updateProfileAction({ name: currentUser.name });
+    setSavingProfile(false);
+    if (res.success) toast.success("Perfil guardado");
+    else toast.error("No se pudo guardar: " + res.error);
+  }
+
+  async function handleSavePreferences() {
+    setSavingPreferences(true);
+    const res = await updateProfileAction({
+      defaultCurrency: currentUser.defaultCurrency,
+      timezone: currentUser.timezone ?? null,
+    });
+    setSavingPreferences(false);
+    if (res.success) toast.success("Preferencias guardadas");
+    else toast.error("No se pudo guardar: " + res.error);
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -78,6 +106,9 @@ export default function SettingsPage() {
                 <Input id="email" value={user.email} disabled className="mt-1" />
               </div>
             </div>
+            <Button onClick={handleSaveProfile} disabled={savingProfile} className="w-full sm:w-auto">
+              Guardar cambios
+            </Button>
           </CardContent>
         </Card>
 
@@ -156,6 +187,9 @@ export default function SettingsPage() {
                 })}
               </div>
             </div>
+            <Button onClick={handleSavePreferences} disabled={savingPreferences} className="w-full sm:w-auto">
+              Guardar cambios
+            </Button>
           </CardContent>
         </Card>
       </div>
