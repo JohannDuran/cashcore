@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/select";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, CheckCircle2 } from "lucide-react";
 
 const goalTypes: { value: GoalType; label: string; icon: string }[] = [
   { value: "savings", label: "Ahorro", icon: "PiggyBank" },
@@ -112,6 +112,9 @@ export function GoalFormModal() {
     resetForm();
   }
 
+  const linkedWallet = walletId ? wallets.find((w) => w.id === walletId) : undefined;
+  const targetNum = parseFloat(targetAmount) || 0;
+
   function handleDelete() {
     if (!editGoal) return;
     deleteGoal(editGoal.id);
@@ -147,12 +150,12 @@ export function GoalFormModal() {
       name: name.trim(),
       type,
       targetAmount: numTarget,
-      currentAmount: parseFloat(currentAmount) || 0,
+      currentAmount: linkedWallet ? linkedWallet.balance : (parseFloat(currentAmount) || 0),
       deadline: deadline || undefined,
       icon,
       color,
       walletId: walletId || undefined,
-      isCompleted,
+      isCompleted: linkedWallet ? linkedWallet.balance >= numTarget : isCompleted,
     };
 
     if (isEditing && editGoal) {
@@ -243,7 +246,7 @@ export function GoalFormModal() {
                 />
               </div>
             </div>
-            {isEditing && (
+            {isEditing && !linkedWallet && (
               <div>
                 <Label htmlFor="current-amount">Avance actual</Label>
                 <div className="relative mt-1">
@@ -259,6 +262,14 @@ export function GoalFormModal() {
                     className="pl-7"
                   />
                 </div>
+              </div>
+            )}
+            {isEditing && linkedWallet && (
+              <div>
+                <Label>Avance actual</Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Automático desde <span className="font-medium text-foreground">{linkedWallet.name}</span>: {formatCurrency(linkedWallet.balance)}
+                </p>
               </div>
             )}
           </div>
@@ -311,13 +322,26 @@ export function GoalFormModal() {
           </div>
 
           {/* Is Completed toggle */}
-          {isEditing && (
+          {isEditing && !linkedWallet && (
              <div className="flex items-center justify-between mt-2 p-3 bg-muted/50 rounded-xl">
                <div>
                  <Label>Meta completada</Label>
                  <p className="text-xs text-muted-foreground">Ocultar de la lista de pendientes</p>
                </div>
                <Switch checked={isCompleted} onCheckedChange={setIsCompleted} />
+             </div>
+          )}
+          {isEditing && linkedWallet && (
+             <div className="flex items-center justify-between mt-2 p-3 bg-muted/50 rounded-xl">
+               <div>
+                 <Label>Completada automáticamente</Label>
+                 <p className="text-xs text-muted-foreground">
+                   Se marcará al alcanzar {formatCurrency(targetNum)}
+                 </p>
+               </div>
+               {targetNum > 0 && linkedWallet.balance >= targetNum && (
+                 <CheckCircle2 className="w-5 h-5 text-primary" />
+               )}
              </div>
           )}
 

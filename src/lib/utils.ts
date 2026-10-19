@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { Currency } from "@/types";
+import type { Currency, Goal, Wallet } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -108,6 +108,20 @@ export function getBudgetBarColor(percentage: number): string {
   if (percentage > 90) return "bg-red-500";
   if (percentage > 70) return "bg-amber-500";
   return "bg-primary";
+}
+
+/** Avance efectivo de una meta: si está vinculada a una wallet, usa su saldo actual. */
+export function getGoalEffectiveAmount(goal: Goal, wallets: Wallet[]): number {
+  if (!goal.walletId) return goal.currentAmount;
+  const wallet = wallets.find((w) => w.id === goal.walletId);
+  return wallet ? wallet.balance : goal.currentAmount;
+}
+
+/** Una meta vinculada a una wallet se completa sola al alcanzar o rebasar su objetivo. */
+export function isGoalCompleted(goal: Goal, wallets: Wallet[]): boolean {
+  if (goal.isCompleted) return true;
+  const current = getGoalEffectiveAmount(goal, wallets);
+  return goal.targetAmount > 0 && current >= goal.targetAmount;
 }
 
 export const currencyFlags: Record<Currency, string> = {

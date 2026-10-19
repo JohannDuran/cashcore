@@ -44,7 +44,7 @@ export function BudgetCard({ budget, categories, wallets, debts, onEdit }: Budge
   const primaryCat = budgetCategories[0];
 
   return (
-    <Card className="group hover:shadow-md transition-all duration-300">
+    <Card onClick={onEdit} className="group hover:shadow-md transition-all duration-300 cursor-pointer">
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3 min-w-0">
@@ -72,11 +72,12 @@ export function BudgetCard({ budget, categories, wallets, debts, onEdit }: Budge
             </div>
           </div>
           <button
-            onClick={onEdit}
-            className="transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer shrink-0"
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            className="transition-opacity text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent cursor-pointer shrink-0 flex items-center gap-1"
             aria-label="Editar presupuesto"
           >
             <Edit className="w-4 h-4" />
+            <span className="text-xs font-medium">Editar</span>
           </button>
         </div>
 

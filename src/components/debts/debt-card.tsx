@@ -578,10 +578,11 @@ export function DebtCard({
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer"
+              className="transition-opacity text-muted-foreground hover:text-foreground p-1.5 rounded-lg hover:bg-accent cursor-pointer flex items-center gap-1"
               aria-label="Editar deuda"
             >
               <Edit className="w-4 h-4" />
+              <span className="text-xs font-medium">Editar</span>
             </button>
           </div>
         </div>
