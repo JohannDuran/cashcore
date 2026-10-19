@@ -73,7 +73,7 @@ export function BudgetCard({ budget, categories, wallets, debts, onEdit }: Budge
           </div>
           <button
             onClick={onEdit}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer shrink-0"
+            className="transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer shrink-0"
             aria-label="Editar presupuesto"
           >
             <Edit className="w-4 h-4" />

@@ -570,7 +570,7 @@ export function DebtCard({
                 variant="ghost"
                 size="sm"
                 onClick={(e) => { e.stopPropagation(); onPay(); }}
-                className="opacity-0 group-hover:opacity-100 transition-opacity h-8 px-2 text-xs gap-1.5"
+                className="transition-opacity h-8 px-2 text-xs gap-1.5"
               >
                 <Banknote className="w-3.5 h-3.5" />
                 Abonar
@@ -578,7 +578,7 @@ export function DebtCard({
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer"
+              className="transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer"
               aria-label="Editar deuda"
             >
               <Edit className="w-4 h-4" />
