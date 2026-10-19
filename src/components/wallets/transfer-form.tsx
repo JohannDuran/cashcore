@@ -90,7 +90,7 @@ export function TransferFormModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-[420px]">
+      <DialogContent className="sm:max-w-[420px] max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Transferir entre wallets</DialogTitle>
           <DialogDescription>Mueve dinero de un wallet a otro</DialogDescription>
