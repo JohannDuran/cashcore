@@ -85,7 +85,10 @@ export default function TransactionsPage() {
           const q = search.toLowerCase();
           if (
             !tx.description.toLowerCase().includes(q) &&
-            !tx.tags.some((t) => t.toLowerCase().includes(q))
+            !(tx.tags ?? []).some((t) => {
+              const name = typeof t === "string" ? t : (t as { name?: string } | null | undefined)?.name ?? "";
+              return name.toLowerCase().includes(q);
+            })
           ) {
             return false;
           }

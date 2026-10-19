@@ -1,0 +1,6 @@
+- Prefers communicating in Spanish; asks questions in Spanish and likely wants responses in Spanish. Confidence: 0.9
+- Prefers troubleshooting solutions that avoid restarting/rebooting the laptop; leads with non-restart fixes before suggesting a reboot. Confidence: 0.8
+- Works with the MacBook in clamshell mode (lid closed) driving two external monitors. Confidence: 0.85
+- Uses Fig for terminal autocomplete (typed as "figxit"); likely wants Fig-related fixes/workarounds. Confidence: 0.7
+- Uses Hyper as the terminal (typed as "herdr"); likely wants terminal advice applicable to Hyper. Confidence: 0.6
+- Prefers all numeric form inputs constrained to two decimal places across the app; integer-only fields (e.g., payment/cutoff days) should remain whole numbers. Confidence: 0.8
