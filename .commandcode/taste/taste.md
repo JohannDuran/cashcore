@@ -4,3 +4,9 @@
 - Uses Fig for terminal autocomplete (typed as "figxit"); likely wants Fig-related fixes/workarounds. Confidence: 0.7
 - Uses Hyper as the terminal (typed as "herdr"); likely wants terminal advice applicable to Hyper. Confidence: 0.6
 - Prefers all numeric form inputs constrained to two decimal places across the app; integer-only fields (e.g., payment/cutoff days) should remain whole numbers. Confidence: 0.8
+- Prefers clear, visible hover and press (active) feedback on interactive cards so clickability is obvious on web, mobile, and PWA. Confidence: 0.85
+- Prefers UI styling that works in both light and dark themes by using theme variables (e.g., primary, shadow) instead of hardcoded colors; wants interactive states (hover/focus) to remain visible in dark mode, preferring border/ring/glow accents over shadows that get lost on dark backgrounds. Confidence: 0.8
+- Prefers a primary-colored rgba glow shadow for card hover/press feedback in both light and dark themes: set it as the base value for light mode and override with a Tailwind `dark:` variant for dark mode (e.g., `hover:shadow-[0_0_24px_rgba(...)] dark:hover:shadow-[0_0_24px_rgba(...)]`) rather than relying on default shadows. Confidence: 0.8
+- Prefers dialog/forms to NOT auto-focus the first input (especially name/title fields) when they open, particularly on mobile, to avoid accidental renames and the keyboard popping up; editing should begin only when the user explicitly taps/clicks an input or select. Confidence: 0.9
+- Prefers interactive cards (e.g., wallet, debt) to be fully clickable to open their edit form, not limited to a separate "edit" button. Confidence: 0.85
+- Prefers explicit edit affordances (e.g., a pencil/edit button) on transaction rows in addition to any row-level click. Confidence: 0.8

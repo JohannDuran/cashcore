@@ -49,9 +49,9 @@ const typeLabels: Record<TransactionType, string> = {
   expense: "Gasto", income: "Ingreso", transfer: "Transferencia",
 };
 const typeColors: Record<TransactionType, string> = {
-  expense: "bg-expense/10 text-expense border-expense/30",
-  income: "bg-income/10 text-income border-income/30",
-  transfer: "bg-transfer/10 text-transfer border-transfer/30",
+  expense: "bg-expense/10 text-expense border-expense/30 dark:bg-expense/25 dark:border-expense/60",
+  income: "bg-income/10 text-income border-income/30 dark:bg-income/25 dark:border-income/60",
+  transfer: "bg-transfer/10 text-transfer border-transfer/30 dark:bg-transfer/25 dark:border-transfer/60",
 };
 const walletTypes: { value: WalletType; label: string; icon: string }[] = [
   { value: "cash", label: "Efectivo", icon: "Banknote" },
