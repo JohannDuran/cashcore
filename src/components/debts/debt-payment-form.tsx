@@ -91,6 +91,7 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
     wallets,
     user,
     addTransaction,
+    replaceTransactionId,
   } = useCashCoreStore();
 
   // ── Form state ──
@@ -179,6 +180,7 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
       if (!txRes.success) {
         toast.error("Error al registrar la transacción: " + txRes.error);
       } else {
+        if (txRes.data?.id) replaceTransactionId(txData.id, txRes.data.id);
         const hasSaldoAFavor = newBalance < 0;
         const isFullyPaid = newBalance <= 0 && newBalance >= 0;
         const meetsMinimum = debt.minimumPayment ? numAmount >= debt.minimumPayment : true;

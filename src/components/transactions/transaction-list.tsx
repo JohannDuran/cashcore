@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { TransactionItem } from "@/components/transactions/transaction-item";
+import { DeleteTransactionDialog } from "@/components/transactions/delete-transaction-dialog";
 import { formatDateGroup } from "@/lib/utils";
 import type { Transaction, Category, Wallet, Debt } from "@/types";
 import { useCashCoreStore } from "@/store";
@@ -15,6 +16,9 @@ interface TransactionListProps {
 
 export function TransactionList({ transactions, categories, wallets, debts }: TransactionListProps) {
   const { setActiveModal, setEditingItem, tags } = useCashCoreStore();
+
+  // Estado para el modal de confirmación de borrado
+  const [deletingTx, setDeletingTx] = useState<Transaction | null>(null);
 
   // Mapa id -> tag para resolver las etiquetas (que llegan como IDs) a nombre y color.
   const tagById = useMemo(() => {
@@ -128,27 +132,37 @@ export function TransactionList({ transactions, categories, wallets, debts }: Tr
   }
 
   return (
-    <div className="space-y-4">
-      {grouped.map((group) => (
-        <div key={group.date}>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 px-1">
-            {group.label}
-          </h3>
-          <div className="space-y-0.5">
-            {group.transactions.map((tx) => (
-              <TransactionItem
-                key={tx.id}
-                transaction={tx}
-                category={categories.find((c) => c.id === tx.categoryId)}
-                sourceAccount={getSourceAccount(tx)}
-                transferToAccount={getTransferDestination(tx)}
-                resolvedTags={resolveTags(tx)}
-                onClick={() => handleEdit(tx)}
-              />
-            ))}
+    <>
+      <div className="space-y-4">
+        {grouped.map((group) => (
+          <div key={group.date}>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 px-1">
+              {group.label}
+            </h3>
+            <div className="space-y-0.5">
+              {group.transactions.map((tx) => (
+                <TransactionItem
+                  key={tx.id}
+                  transaction={tx}
+                  category={categories.find((c) => c.id === tx.categoryId)}
+                  sourceAccount={getSourceAccount(tx)}
+                  transferToAccount={getTransferDestination(tx)}
+                  resolvedTags={resolveTags(tx)}
+                  onClick={() => handleEdit(tx)}
+                  onDelete={() => setDeletingTx(tx)}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      <DeleteTransactionDialog
+        transaction={deletingTx}
+        open={!!deletingTx}
+        onOpenChange={(open) => { if (!open) setDeletingTx(null); }}
+        category={deletingTx ? categories.find((c) => c.id === deletingTx.categoryId) : undefined}
+      />
+    </>
   );
 }
