@@ -28,6 +28,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5",
     "@prisma/client": "^6.19.3",
+    "@radix-ui/react-accordion": "^1.3.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -46,6 +47,7 @@
     "@supabase/supabase-js": "^2.103.0",
     "class-variance-authority": "^0.7",
     "clsx": "^2",
+    "cn": "^0.5.0",
     "date-fns": "^4",
     "framer-motion": "^12",
     "lucide-react": "^0.469",
@@ -59,6 +61,7 @@
     "recharts": "^2",
     "sonner": "^2",
     "tailwind-merge": "^3",
+    "web-push": "^3.6.7",
     "zod": "^3",
     "zustand": "^5"
   },
@@ -67,6 +70,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "prisma": "^6.19.3",

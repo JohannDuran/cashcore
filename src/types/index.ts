@@ -1,5 +1,11 @@
 // CashCore — Type Definitions
 
+// Re-export notification types
+export * from './notifications';
+
+// Import NotificationPreferences for use in User interface
+import type { NotificationPreferences } from './notifications';
+
 export type TransactionType = 'income' | 'expense' | 'transfer';
 export type WalletType = 'cash' | 'bank' | 'credit' | 'loan' | 'ewallet' | 'crypto' | 'investment';
 export type BudgetPeriod = 'weekly' | 'biweekly' | 'quincenal' | 'monthly' | 'yearly';
@@ -14,6 +20,7 @@ export interface User {
   timezone?: string | null;
   preferredLocale: string;
   theme: 'light' | 'dark' | 'system';
+  notificationPreferences?: NotificationPreferences | null;
   createdAt: Date;
 }
 

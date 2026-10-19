@@ -13,25 +13,27 @@ datasource db {
 }
 
 model User {
-  id              String   @id @default(uuid()) // Se vincula manual con supabase auth.users
-  email           String   @unique
-  name            String
-  avatarUrl       String?
-  defaultCurrency String   @default("MXN")
-  timezone        String?  // Zona horaria preferida (ej: "America/Mexico_City"). Null = usar navegador o inferir de moneda
-  preferredLocale String   @default("es-MX")
-  theme           String   @default("system")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                      String   @id @default(uuid()) // Se vincula manual con supabase auth.users
+  email                   String   @unique
+  name                    String
+  avatarUrl               String?
+  defaultCurrency         String   @default("MXN")
+  timezone                String?  // Zona horaria preferida (ej: "America/Mexico_City"). Null = usar navegador o inferir de moneda
+  preferredLocale         String   @default("es-MX")
+  theme                   String   @default("system")
+  notificationPreferences Json?    // Preferencias de notificaciones (NotificationPreferences)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  wallets       Wallet[]
-  transactions  Transaction[]
-  categories    Category[]
-  budgets       Budget[]
-  tags          Tag[]
-  goals         Goal[]
-  subscriptions Subscription[]
-  debts         Debt[]
+  wallets           Wallet[]
+  transactions      Transaction[]
+  categories        Category[]
+  budgets           Budget[]
+  tags              Tag[]
+  goals             Goal[]
+  subscriptions     Subscription[]
+  debts             Debt[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Wallet {
@@ -231,4 +233,19 @@ model Currency {
   code String @id
   name String
   flag String
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
