@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import type { Currency } from "@/types";
 import { CategoryManagerCard } from "@/components/settings/category-manager-card";
 import { TagManagerCard } from "@/components/settings/tag-manager-card";
+import { NotificationPreferencesCard } from "@/components/settings/notification-preferences-card";
 import { updateProfileAction } from "@/app/actions/user.actions";
 
 export default function SettingsPage() {
@@ -197,7 +198,10 @@ export default function SettingsPage() {
       {/* Fila 2 — Categorías (ancho completo) */}
       <CategoryManagerCard />
 
-      {/* Fila 3 — Tags + Datos */}
+      {/* Fila 3 — Notificaciones (ancho completo) */}
+      <NotificationPreferencesCard />
+
+      {/* Fila 4 — Tags + Datos */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <TagManagerCard />
 
