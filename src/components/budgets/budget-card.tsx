@@ -44,7 +44,7 @@ export function BudgetCard({ budget, categories, wallets, debts, onEdit }: Budge
   const primaryCat = budgetCategories[0];
 
   return (
-    <Card onClick={onEdit} className="group hover:shadow-md transition-all duration-300 cursor-pointer">
+    <Card onClick={onEdit} className="group hover:shadow-[0_0_24px_rgba(106,171,142,0.35)] hover:-translate-y-0.5 hover:border-primary hover:ring-2 hover:ring-primary/40 dark:hover:shadow-[0_0_24px_rgba(139,197,163,0.35)] active:scale-[0.98] active:shadow-[0_0_16px_rgba(106,171,142,0.30)] dark:active:shadow-[0_0_16px_rgba(139,197,163,0.30)] transition-all duration-300 cursor-pointer">
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3 min-w-0">

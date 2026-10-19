@@ -78,7 +78,7 @@ function GoalCard({ goal }: { goal: Goal }) {
         setActiveModal("goal-form");
       }}
       className={cn(
-        "cursor-pointer relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5",
+        "cursor-pointer relative overflow-hidden transition-all duration-300 hover:shadow-[0_0_24px_rgba(106,171,142,0.35)] hover:-translate-y-0.5 hover:border-primary hover:ring-2 hover:ring-primary/40 dark:hover:shadow-[0_0_24px_rgba(139,197,163,0.35)] active:scale-[0.98] active:shadow-[0_0_16px_rgba(106,171,142,0.30)] dark:active:shadow-[0_0_16px_rgba(139,197,163,0.30)]",
         goal.isCompleted && "opacity-70"
       )}
     >
