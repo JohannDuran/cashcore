@@ -94,7 +94,7 @@ export function WalletCard({ wallet, onEdit, onClick, currentDate, transactions 
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer"
+            className="transition-opacity text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-accent cursor-pointer"
             aria-label="Editar wallet"
           >
             <Edit className="w-4 h-4" />
