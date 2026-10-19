@@ -40,5 +40,46 @@ export const userService = {
       where: { id: userId },
       data: prismaData,
     });
-  }
+  },
+
+  /**
+   * Dismiss notifications by adding their IDs to the user's dismissed list
+   * Uses Prisma's push operation to add to the array without overwriting
+   */
+  async dismissNotifications(userId: string, notificationIds: string[]) {
+    // Get current dismissed IDs to avoid duplicates
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { dismissedNotifications: true },
+    });
+
+    const currentDismissed = user?.dismissedNotifications ?? [];
+    const newIds = notificationIds.filter(id => !currentDismissed.includes(id));
+
+    if (newIds.length === 0) {
+      return user;
+    }
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        dismissedNotifications: {
+          push: newIds,
+        },
+      },
+    });
+  },
+
+  /**
+   * Clear old dismissed notifications that are no longer relevant
+   * This helps keep the array from growing indefinitely
+   */
+  async clearDismissedNotifications(userId: string) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        dismissedNotifications: [],
+      },
+    });
+  },
 };

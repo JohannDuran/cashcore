@@ -22,6 +22,7 @@ model User {
   preferredLocale         String   @default("es-MX")
   theme                   String   @default("system")
   notificationPreferences Json?    // Preferencias de notificaciones (NotificationPreferences)
+  dismissedNotifications  String[] @default([]) // IDs de notificaciones descartadas para no volver a mostrar
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 

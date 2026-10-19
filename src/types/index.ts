@@ -21,6 +21,7 @@ export interface User {
   preferredLocale: string;
   theme: 'light' | 'dark' | 'system';
   notificationPreferences?: NotificationPreferences | null;
+  dismissedNotifications?: string[]; // IDs de notificaciones descartadas
   createdAt: Date;
 }
 
