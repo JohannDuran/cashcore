@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(cat > \"$COMMANDCODE_SCRATCHPAD/windowinfo.swift\" <<'EOF' import CoreGraphics import Foundation let opts: CGWindowListOption = [.optionAll] guard let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else { exit(1) } for w in list { let owner = w[kCGWindowOwnerName as String] as? String ?? \"?\" if owner.localizedCaseInsensitiveContains(\"System Settings\") { let name = w[kCGWindowName as String] as? String ?? \"(sin titulo)\" let bounds = w[kCGWindowBounds as String] as? [String: Any] ?? [:] let layer = w[kCGWindowLayer as String] as? Int ?? -1 let onscreen = w[kCGWindowIsOnscreen as String] as? Bool print(\"owner=\\(owner) title=\\(name) layer=\\(layer) onscreen=\\(String(describing: onscreen)) bounds=\\(bounds)\") } } EOF swift \"$COMMANDCODE_SCRATCHPAD/windowinfo.swift\" 2>&1)",
+      "Shell(ls:*)",
+      "Shell(grep:*)",
+      "Shell(echo:*)",
+      "Shell(osascript -e tell application \"System Events\" to get name of every process whose visible is true 2 >& 1)",
+      "Shell(osascript -e 'tell application \"System Events\" to tell process \"System Settings\" to get {name, position, size} of every window' 2>&1)",
+      "Shell(screencapture -x \"$COMMANDCODE_SCRATCHPAD/main.png\" 2>&1; ls -la \"$COMMANDCODE_SCRATCHPAD/main.png\" 2>&1)",
+      "Shell(echo \"=== contenido plist ===\"; plutil -p ~/Library/Preferences/com.apple.systempreferences.plist 2>&1; echo \"=== con defaults ===\"; defaults read com.apple.systempreferences 2>&1 | head -60)",
+      "Shell(killall \"System Settings\" 2>/dev/null; sleep 1; defaults delete com.apple.systempreferences \"NSWindow Frame Main\" 2>/dev/null; defaults delete com.apple.systempreferences \"NSWindow Frame main\" 2>/dev/null; echo \"borradas las posiciones\"; open -a \"System Settings\"; sleep 4; echo \"=== proceso ===\"; pgrep -fl \"System Settings\" || echo \"NO CORRE\"; echo \"=== nueva posicion ===\"; defaults read com.apple.systempreferences 2>/dev/null | grep -i \"NSWindow Frame\" || echo \"(aun no guarda posicion nueva)\")",
+      "Shell(defaults:*)",
+      "Shell(system_profiler:*)",
+      "Shell(killall \"System Settings\" 2>/dev/null; sleep 1; defaults write com.apple.systempreferences \"NSWindow Frame Main\" \"100 100 740 900 0 0 2560 1080\"; defaults write com.apple.systempreferences \"NSWindow Frame main\" \"100 100 723 749 0 0 2560 1080\"; echo \"posicion forzada al monitor principal\"; open -a \"System Settings\"; sleep 4; echo \"=== frame guardado ===\"; defaults read com.apple.systempreferences 2>/dev/null | grep -i \"NSWindow Frame\" || echo \"(no guarda)\")",
+      "Shell(killall \"System Settings\" 2>/dev/null; sleep 1; echo \"=== plist real ===\"; plutil -p ~/Library/Preferences/com.apple.systempreferences.plist 2>&1 | grep -i \"NSWindow Frame\" || echo \"(sin keys de frame)\")",
+      "Shell(pnpm:*)"
+    ],
+    "deny": [],
+    "defaultMode": "default"
+  }
+}

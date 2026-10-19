@@ -42,6 +42,7 @@ export async function getDashboardDataAction() {
       include: {
         category: true,
         wallet: true,
+        tags: true,
       }
     });
 
