@@ -183,7 +183,7 @@ export const transactionService = {
       delete updateData.transferToWalletId;
 
       const transaction = await tx.transaction.update({
-        where: { id: transactionId, userId },
+        where: { id: transactionId },
         data: {
           ...updateData,
           walletId: actualWalletId,
@@ -202,14 +202,20 @@ export const transactionService = {
 
   async deleteTransaction(userId: string, transactionId: string) {
     return prisma.$transaction(async (tx) => {
-      const transaction = await tx.transaction.findFirstOrThrow({
+      const transaction = await tx.transaction.findFirst({
         where: { id: transactionId, userId },
       });
 
+      if (!transaction) {
+        throw new Error(`Transaction not found: ${transactionId}`);
+      }
+
       await revertTransactionEffects(tx, userId, transaction);
 
+      // Prisma 6: delete where solo acepta campos únicos (PK). El ownership ya fue
+      // validado por el findFirst anterior; aquí solo usamos el PK.
       await tx.transaction.delete({
-        where: { id: transactionId, userId },
+        where: { id: transactionId },
       });
 
       return transaction;

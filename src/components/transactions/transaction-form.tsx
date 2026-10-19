@@ -80,7 +80,7 @@ export function TransactionFormModal() {
   const {
     activeModal, setActiveModal, editingItem, setEditingItem,
     wallets, categories, tags, debts,
-    addTransaction, updateTransaction, deleteTransaction,
+    addTransaction, updateTransaction, deleteTransaction, replaceTransactionId,
     addWallet, updateWallet, addCategory, updateCategory, addTag, updateDebt,
     user,
   } = useCashCoreStore();
@@ -416,7 +416,10 @@ export function TransactionFormModal() {
       addTransaction({ ...txData, id });
       createTransactionAction({ ...txData, id }).then((res) => {
         if (!res.success) toast.error("Error al guardar: " + res.error);
-        else toast.success("Transacción registrada");
+        else {
+          if (res.data?.id) replaceTransactionId(id, res.data.id);
+          toast.success("Transacción registrada");
+        }
       });
     }
     handleClose();

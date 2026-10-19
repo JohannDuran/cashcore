@@ -24,7 +24,7 @@ import {
 import { toast } from "sonner";
 
 export function TransferFormModal() {
-  const { activeModal, setActiveModal, wallets, addTransaction, user } = useCashCoreStore();
+  const { activeModal, setActiveModal, wallets, addTransaction, replaceTransactionId, user } = useCashCoreStore();
 
   const isOpen = activeModal === "transfer-form";
   const activeWallets = wallets.filter((w) => !w.isArchived);
@@ -79,7 +79,13 @@ export function TransferFormModal() {
     };
 
     addTransaction({ ...txData, id: generatedId });
-    createTransactionAction({ ...txData, id: generatedId }).catch(err => {
+    createTransactionAction({ ...txData, id: generatedId }).then((res) => {
+      if (!res.success) {
+        toast.error("Error al guardar transferencia en la nube");
+      } else if (res.data?.id) {
+        replaceTransactionId(generatedId, res.data.id);
+      }
+    }).catch(err => {
       console.error(err);
       toast.error("Error al guardar transferencia en la nube");
     });

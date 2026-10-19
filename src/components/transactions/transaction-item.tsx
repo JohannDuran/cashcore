@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatRelativeDate } from "@/lib/utils";
 import type { Transaction, Category, Wallet, Debt } from "@/types";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Edit } from "lucide-react";
+import { ArrowRight, Edit, Trash2 } from "lucide-react";
 
 // Tipo unión para cuenta origen/destino (Wallet o Debt)
 type Account = Wallet | Debt;
@@ -18,6 +18,7 @@ interface TransactionItemProps {
   transferToAccount?: Account;
   resolvedTags?: { id: string; name: string; color: string }[];
   onClick?: () => void;
+  onDelete?: () => void;
 }
 
 // Helper para verificar si es una Wallet (tiene balance)
@@ -25,7 +26,7 @@ function isWallet(account: Account): account is Wallet {
   return 'balance' in account;
 }
 
-export function TransactionItem({ transaction, category, sourceAccount, transferToAccount, resolvedTags, onClick }: TransactionItemProps) {
+export function TransactionItem({ transaction, category, sourceAccount, transferToAccount, resolvedTags, onClick, onDelete }: TransactionItemProps) {
   return (
     <div
       role="button"
@@ -136,6 +137,14 @@ export function TransactionItem({ transaction, category, sourceAccount, transfer
         aria-label="Editar transacción"
       >
         <Edit className="w-4 h-4" />
+      </button>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
+        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer shrink-0"
+        aria-label="Eliminar transacción"
+      >
+        <Trash2 className="w-4 h-4" />
       </button>
     </div>
   );

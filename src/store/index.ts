@@ -42,6 +42,8 @@ interface CashCoreState {
   addTransaction: (tx: Omit<Transaction, "id" | "createdAt" | "updatedAt"> & { id?: string }) => void;
   updateTransaction: (id: string, data: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
+  /** Reemplaza el ID local/temporal de una transacción optimista con el UUID real de la BD. */
+  replaceTransactionId: (tempId: string, realId: string) => void;
 
   // Actions — Wallets
   addWallet: (wallet: Omit<Wallet, "id" | "createdAt"> & { id?: string }) => void;
@@ -351,6 +353,13 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
 
       return { transactions, wallets, debts, budgets };
     }),
+
+  replaceTransactionId: (tempId, realId) =>
+    set((state) => ({
+      transactions: state.transactions.map((t) =>
+        t.id === tempId ? { ...t, id: realId } : t
+      ),
+    })),
 
   // ── Wallets ──
   addWallet: (walletData) =>
