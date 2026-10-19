@@ -206,6 +206,7 @@ export default function WalletsPage() {
                   <WalletCard
                     key={wallet.id}
                     wallet={wallet}
+                    onClick={() => handleEdit(wallet)}
                     onEdit={() => handleEdit(wallet)}
                     currentDate={currentDate}
                     transactions={transactions}
@@ -228,6 +229,7 @@ export default function WalletsPage() {
                   <WalletCard
                     key={wallet.id}
                     wallet={wallet}
+                    onClick={() => handleEdit(wallet)}
                     onEdit={() => handleEdit(wallet)}
                     currentDate={currentDate}
                     transactions={transactions}

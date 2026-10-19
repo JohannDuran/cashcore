@@ -248,6 +248,7 @@ export default function DebtsPage() {
                     key={debt.id}
                     debt={debt}
                     transactions={debtTransactions}
+                    onClick={() => handleEdit(debt)}
                     onEdit={() => handleEdit(debt)}
                     onPay={() => handlePay(debt)}
                     onMarkStatementPaid={() => handleMarkStatementPaid(debt)}
@@ -272,6 +273,7 @@ export default function DebtsPage() {
                     key={debt.id}
                     debt={debt}
                     transactions={debtTransactions}
+                    onClick={() => handleEdit(debt)}
                     onEdit={() => handleEdit(debt)}
                   />
                 ))}

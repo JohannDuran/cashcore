@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatRelativeDate } from "@/lib/utils";
 import type { Transaction, Category, Wallet, Debt } from "@/types";
 import { cn } from "@/lib/utils";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Edit } from "lucide-react";
 
 // Tipo unión para cuenta origen/destino (Wallet o Debt)
 type Account = Wallet | Debt;
@@ -27,12 +27,19 @@ function isWallet(account: Account): account is Wallet {
 
 export function TransactionItem({ transaction, category, sourceAccount, transferToAccount, resolvedTags, onClick }: TransactionItemProps) {
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick?.();
+        }
+      }}
       className={cn(
-        "flex items-center gap-3 py-3 px-3 -mx-1 rounded-xl hover:bg-accent/50 transition-all duration-200 w-full text-left cursor-pointer group"
+        "flex items-center gap-3 py-3 px-3 -mx-1 rounded-xl hover:bg-accent/50 active:bg-accent/70 transition-all duration-200 w-full text-left cursor-pointer group"
       )}
-      type="button"
     >
       {/* Category Icon */}
       <div
@@ -121,6 +128,15 @@ export function TransactionItem({ transaction, category, sourceAccount, transfer
           {formatRelativeDate(transaction.date)}
         </p>
       </div>
-    </button>
+
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+        className="ml-1 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent cursor-pointer shrink-0"
+        aria-label="Editar transacción"
+      >
+        <Edit className="w-4 h-4" />
+      </button>
+    </div>
   );
 }
