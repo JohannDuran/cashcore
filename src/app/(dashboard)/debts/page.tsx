@@ -80,8 +80,13 @@ export default function DebtsPage() {
 
   // Totales
   const totalDebt = activeDebts.reduce((sum, d) => sum + d.currentBalance, 0);
-  const totalOriginal = activeDebts.reduce((sum, d) => sum + d.originalAmount, 0);
-  const totalPaid = totalOriginal - totalDebt;
+  // Usar TODAS las deudas para el monto original y lo pagado: así las compras nuevas
+  // en tarjetas (que suben currentBalance) y los pagos no distorsionan el "De un total de".
+  const totalOriginal = debts.reduce((sum, d) => sum + d.originalAmount, 0);
+  const totalPaid = debts.reduce((sum, d) => {
+    const paid = d.originalAmount - d.currentBalance;
+    return sum + (paid > 0 ? paid : 0); // no contar saldo a favor como "pagado negativo"
+  }, 0);
   const avgProgress = activeDebts.length > 0
     ? Math.round(activeDebts.reduce((sum, d) => {
         const paid = d.originalAmount - d.currentBalance;
