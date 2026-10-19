@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useTransition } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -16,14 +16,17 @@ import {
   PiggyBank,
   CreditCard,
   Trophy,
-  Wallet,
   ChevronRight,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { useCashCoreStore } from "@/store";
 import { computeNotifications } from "@/lib/notifications";
+import { dismissNotificationsAction } from "@/app/actions/notification.actions";
 import type { AppNotification, NotificationType } from "@/types/notifications";
 import { DEFAULT_NOTIFICATION_PREFERENCES, NOTIFICATION_PRIORITY_COLORS } from "@/types/notifications";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -56,13 +59,19 @@ const notificationLinks: Record<NotificationType, string> = {
 
 export function Topbar() {
   const pathname = usePathname();
-  const { user, subscriptions, goals, budgets, debts } = useCashCoreStore();
+  const { user, subscriptions, goals, budgets, debts, updateUser } = useCashCoreStore();
   const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const title = pageTitles[pathname] || "CashCore";
 
+  // Get dismissed notification IDs from user
+  const dismissedIds = useMemo(() => {
+    return new Set(user?.dismissedNotifications ?? []);
+  }, [user?.dismissedNotifications]);
+
   // Compute notifications from current data
-  const notifications = useMemo(() => {
+  const allNotifications = useMemo(() => {
     const prefs = user?.notificationPreferences ?? DEFAULT_NOTIFICATION_PREFERENCES;
     
     // If globally disabled, return empty
@@ -109,10 +118,40 @@ export function Topbar() {
     });
   }, [user?.notificationPreferences, subscriptions, goals, budgets, debts]);
 
+  // Filter out dismissed notifications
+  const notifications = useMemo(() => {
+    return allNotifications.filter((n) => !dismissedIds.has(n.id));
+  }, [allNotifications, dismissedIds]);
+
   // Count by priority
   const criticalCount = notifications.filter((n) => n.priority === "critical").length;
   const highCount = notifications.filter((n) => n.priority === "high").length;
   const totalUrgent = criticalCount + highCount;
+
+  // Handle dismiss all notifications
+  const handleDismissAll = () => {
+    if (notifications.length === 0) return;
+
+    const notificationIds = notifications.map((n) => n.id);
+
+    startTransition(async () => {
+      const result = await dismissNotificationsAction(notificationIds);
+      
+      if (result.success) {
+        // Update local state immediately for better UX
+        const newDismissed = [...(user?.dismissedNotifications ?? []), ...notificationIds];
+        updateUser({ dismissedNotifications: newDismissed });
+        toast.success("Notificaciones limpiadas", {
+          description: `${notificationIds.length} notificación${notificationIds.length > 1 ? "es" : ""} descartada${notificationIds.length > 1 ? "s" : ""}`,
+        });
+        setOpen(false);
+      } else {
+        toast.error("Error al limpiar notificaciones", {
+          description: result.error,
+        });
+      }
+    });
+  };
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 sm:px-6 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -186,14 +225,28 @@ export function Topbar() {
             )}
 
             {notifications.length > 0 && (
-              <div className="px-4 py-3 border-t border-border bg-muted/30">
+              <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center justify-between gap-2">
                 <Link
                   href="/settings"
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                   onClick={() => setOpen(false)}
                 >
-                  Configurar notificaciones →
+                  Configurar →
                 </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs text-muted-foreground hover:text-destructive"
+                  onClick={handleDismissAll}
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                  )}
+                  Limpiar todas
+                </Button>
               </div>
             )}
           </PopoverContent>
@@ -214,7 +267,6 @@ function NotificationItem({
 }) {
   const icon = notificationIcons[notification.type];
   const link = notificationLinks[notification.type];
-  const priorityColor = NOTIFICATION_PRIORITY_COLORS[notification.priority];
 
   return (
     <Link
