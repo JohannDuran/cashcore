@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { EmptyState } from "@/components/shared/empty-state";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatDate, getGoalEffectiveAmount, isGoalCompleted } from "@/lib/utils";
 import {
   Target,
   Plus,
@@ -19,6 +19,8 @@ import {
   Clock,
   CheckCircle2,
   Flame,
+  Calendar,
+  Edit,
 } from "lucide-react";
 import type { Goal } from "@/types";
 import { GoalFormModal } from "@/components/goals/goal-form";
@@ -58,6 +60,17 @@ function GoalCard({ goal }: { goal: Goal }) {
       ? remaining / (daysLeft / 30)
       : null;
 
+  function remainingLabel(days: number): string {
+    if (days <= 0) return "Vencida";
+    const months = Math.floor(days / 30);
+    const rest = days % 30;
+    const monthStr = months === 1 ? "1 mes" : `${months} meses`;
+    const dayStr = rest === 1 ? "1 día" : `${rest} días`;
+    if (months > 0 && rest > 0) return `${monthStr} y ${dayStr} restantes`;
+    if (months > 0) return `${monthStr} restantes`;
+    return `${days} días restantes`;
+  }
+
   return (
     <Card
       onClick={() => {
@@ -69,15 +82,6 @@ function GoalCard({ goal }: { goal: Goal }) {
         goal.isCompleted && "opacity-70"
       )}
     >
-      {goal.isCompleted && (
-        <div className="absolute top-3 right-3">
-          <Badge className="bg-primary text-primary-foreground gap-1 text-[10px]">
-            <CheckCircle2 className="w-3 h-3" />
-            Completada
-          </Badge>
-        </div>
-      )}
-
       <CardContent className="p-5">
         {/* Header */}
         <div className="flex items-start gap-3 mb-4">
@@ -89,16 +93,37 @@ function GoalCard({ goal }: { goal: Goal }) {
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold truncate">{goal.name}</h3>
-            <Badge
-              variant="secondary"
-              className={cn(
-                "text-[10px] mt-1",
-                goalTypeColors[goal.type]
+            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+              <Badge
+                variant="secondary"
+                className={cn(
+                  "text-[10px]",
+                  goalTypeColors[goal.type]
+                )}
+              >
+                {goalTypeLabels[goal.type]}
+              </Badge>
+              {goal.isCompleted && (
+                <Badge className="bg-primary text-primary-foreground gap-1 text-[10px]">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Completada
+                </Badge>
               )}
-            >
-              {goalTypeLabels[goal.type]}
-            </Badge>
+            </div>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingItem(goal);
+              setActiveModal("goal-form");
+            }}
+            className="shrink-0 gap-1.5"
+          >
+            <Edit className="w-3.5 h-3.5" />
+            Editar
+          </Button>
         </div>
 
         {/* Progress Ring / Bar */}
@@ -148,11 +173,17 @@ function GoalCard({ goal }: { goal: Goal }) {
         </div>
 
         {/* Meta info */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-3">
+        <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-3 gap-2 flex-wrap">
           {daysLeft !== null && (
             <div className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              {daysLeft > 0 ? `${daysLeft} días restantes` : "Vencida"}
+              {remainingLabel(daysLeft)}
+            </div>
+          )}
+          {goal.deadline && (
+            <div className="flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {formatDate(goal.deadline)}
             </div>
           )}
           {monthlyNeeded && (
@@ -168,10 +199,20 @@ function GoalCard({ goal }: { goal: Goal }) {
 }
 
 export default function GoalsPage() {
-  const { goals, setActiveModal, setEditingItem } = useCashCoreStore();
+  const { goals, wallets, setActiveModal, setEditingItem } = useCashCoreStore();
 
-  const activeGoals = goals.filter((g) => !g.isCompleted);
-  const completedGoals = goals.filter((g) => g.isCompleted);
+  const effectiveGoals = useMemo(
+    () =>
+      goals.map((g) => ({
+        ...g,
+        currentAmount: getGoalEffectiveAmount(g, wallets),
+        isCompleted: isGoalCompleted(g, wallets),
+      })),
+    [goals, wallets]
+  );
+
+  const activeGoals = effectiveGoals.filter((g) => !g.isCompleted);
+  const completedGoals = effectiveGoals.filter((g) => g.isCompleted);
 
   const summary = useMemo(() => {
     const totalTarget = activeGoals.reduce(
