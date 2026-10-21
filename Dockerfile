@@ -5,8 +5,8 @@ FROM node:24-alpine AS deps
 
 WORKDIR /app
 
-# Copiar archivos de dependencias
-COPY package.json pnpm-lock.yaml ./
+# Copiar archivos de dependencias y la config de pnpm
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # Copiar schema de Prisma (necesario para prisma generate en postinstall)
 COPY prisma ./prisma
