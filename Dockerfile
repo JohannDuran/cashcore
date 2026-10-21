@@ -13,7 +13,10 @@ COPY prisma ./prisma
 
 # Instalar dependencias
 # El postinstall ejecuta "prisma generate" automáticamente
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+# --dangerously-allow-all-builds: permite los build scripts nativos
+#   (prisma, sharp, esbuild...) de forma NO interactiva. Seguro en Docker
+#   porque las dependencias vienen del lockfile verificado.
+RUN corepack enable pnpm && pnpm install --frozen-lockfile --dangerously-allow-all-builds
 
 # ============================================
 # ETAPA 2: BUILD
