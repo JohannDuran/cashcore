@@ -46,6 +46,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 # Puerto donde correrá la app (Next.js standalone usa 3000 por defecto)
 ENV PORT=3000
+# Escuchar en todas las interfaces de red del contenedor (no solo la IP interna).
+# Necesario para que el healthcheck (127.0.0.1) pueda alcanzar la app.
+ENV HOSTNAME=0.0.0.0
 
 # Crear usuario sin privilegios
 RUN addgroup --system --gid 1001 nodejs
