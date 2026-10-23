@@ -1,6 +1,7 @@
-# Versión de la sintaxis de Docker Compose
-# (en versiones recientes de Docker, esto es opcional)
-
+  
+  # Versión de la sintaxis de Docker Compose
+  # (en versiones recientes de Docker, esto es opcional)
+  
   services:
     # ============================================
     # SERVICIO: CashCore (tu app Next.js)
@@ -36,3 +37,9 @@
       volumes:
         - /var/run/docker.sock:/var/run/docker.sock:ro
         - dozzle_data:/data
+  
+  # ============================================
+  # VOLÚMENES (almacenamiento persistente)
+  # ============================================
+  volumes:
+    dozzle_data:
