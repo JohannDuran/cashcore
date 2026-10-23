@@ -1,0 +1,59 @@
+# Versión de la sintaxis de Docker Compose
+# (en versiones recientes de Docker, esto es opcional)
+
+services:
+  # ============================================
+  # SERVICIO: CashCore (tu app Next.js)
+  # ============================================
+  cashcore:
+    # Construir la imagen desde el Dockerfile en el directorio actual
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    # Nombre del contenedor (para identificarlo fácilmente)
+    container_name: cashcore
+    
+    # Reiniciar automáticamente si falla o si el servidor reinicia
+    restart: always
+    
+    # Mapeo de puertos: HOST:CONTENEDOR
+    # El tráfico al puerto 3001 del servidor va al 3000 del contenedor
+    ports:
+      - "3001:3000"
+    
+    # Archivo con variables de entorno
+    env_file:
+      - .env
+    
+    # Variables de entorno adicionales (opcionales)
+    environment:
+      - NODE_ENV=production
+    
+    # Healthcheck: Docker verifica que la app responda
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
+  # SERVICIO: Redis (cache, sesiones, etc.)
+  # ============================================
+  # Descomenta si necesitas Redis en el futuro:
+  
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: redis
+  #   restart: always
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+
+# ============================================
+# VOLÚMENES (almacenamiento persistente)
+# ============================================
+# volumes:
+#   redis_data:
