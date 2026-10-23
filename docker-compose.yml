@@ -1,45 +1,44 @@
-  
-  # Versión de la sintaxis de Docker Compose
-  # (en versiones recientes de Docker, esto es opcional)
-  
-  services:
-    # ============================================
-    # SERVICIO: CashCore (tu app Next.js)
-    # ============================================
-    cashcore:
-      build:
-        context: .
-        dockerfile: Dockerfile
-      container_name: cashcore
-      restart: always
-      ports:
-        - "3001:3000"
-      env_file:
-        - .env
-      environment:
-        - NODE_ENV=production
-      healthcheck:
-        test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
-        interval: 30s
-        timeout: 10s
-        retries: 3
-        start_period: 40s
-  
-    # ============================================
-    # SERVICIO: Dozzle (visor de logs)
-    # ============================================
-    dozzle:
-      image: amir20/dozzle:latest
-      container_name: dozzle
-      restart: always
-      ports:
-        - "127.0.0.1:8080:8080"
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock:ro
-        - dozzle_data:/data
-  
+# Versión de la sintaxis de Docker Compose
+# (en versiones recientes de Docker, esto es opcional)
+
+services:
   # ============================================
-  # VOLÚMENES (almacenamiento persistente)
+  # SERVICIO: CashCore (tu app Next.js)
   # ============================================
-  volumes:
-    dozzle_data:
+  cashcore:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cashcore
+    restart: always
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
+  # SERVICIO: Dozzle (visor de logs)
+  # ============================================
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dozzle_data:/data
+
+# ============================================
+# VOLÚMENES (almacenamiento persistente)
+# ============================================
+volumes:
+  dozzle_data:
