@@ -211,6 +211,10 @@ DIRECT_URL=""
 NEXT_PUBLIC_SUPABASE_URL=""
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=""
 NEXT_PUBLIC_SUPABASE_ANON_KEY=""
+
+# Server Actions de Next.js. Genera una vez y conserva el mismo valor entre deploys.
+# openssl rand -base64 32
+NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=""
 ```
 
 **Dónde obtener cada valor** (panel de Supabase → tu proyecto):
@@ -223,6 +227,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=""
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` / `ANON_KEY` | *Project Settings → API → Project API keys*. |
 
 > **Nunca** subas el `.env` real al repositorio. Solo se versiona `.env.example`.
+
+> **Importante para producción:** `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` debe estar
+> disponible durante el `next build` y no debe cambiar entre despliegues. En Docker,
+> `docker-compose.yml` la pasa como `build.args`; si la cambias en cada build,
+> las pestañas o instancias que usen otra build pueden producir `Failed to find Server Action`.
 
 ---
 

@@ -1,5 +1,6 @@
-// IMPORTANTE: sube este número en cada deploy que cambie Server Actions / HTML
-// para invalidar la caché vieja en todos los dispositivos.
+// Cambia este número solo si modificas los assets o la estrategia de caché.
+// No controla la compatibilidad de Server Actions; esa la controla
+// NEXT_SERVER_ACTIONS_ENCRYPTION_KEY durante el build.
 const CACHE_NAME = "cashcore-v2";
 
 // Solo cacheamos recursos verdaderamente estáticos (NO páginas HTML, porque
