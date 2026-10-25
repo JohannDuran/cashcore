@@ -40,6 +40,7 @@ export async function createSubscriptionAction(
 
     const newSub = await subscriptionService.createSubscription(user.id, dbData);
 
+    logger.info({ userId: user.id, subscriptionId: newSub.id }, "Suscripción creada");
     return { success: true, data: newSub };
   } catch (error) {
     logger.error({ err: error }, "createSubscriptionAction failed");
@@ -57,6 +58,7 @@ export async function updateSubscriptionAction(subId: string, data: Partial<Subs
 
     const updatedSub = await subscriptionService.updateSubscription(user.id, subId, dbData);
 
+    logger.info({ userId: user.id, subscriptionId: subId }, "Suscripción actualizada");
     return { success: true, data: updatedSub };
   } catch (error) {
     logger.error({ err: error }, "updateSubscriptionAction failed");
@@ -71,6 +73,7 @@ export async function deleteSubscriptionAction(subId: string) {
     if (!user) throw new Error("Unauthorized");
 
     await subscriptionService.deleteSubscription(user.id, subId);
+    logger.info({ userId: user.id, subscriptionId: subId }, "Suscripción borrada");
     return { success: true };
   } catch (error) {
     logger.error({ err: error }, "deleteSubscriptionAction failed");

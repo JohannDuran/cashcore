@@ -33,6 +33,7 @@ export async function createWalletAction(wallet: Omit<Wallet, "createdAt"> & { i
     // Si pasamos ID por optimistic UI, lo inyectamos al DB
     const newWallet = await walletService.createWallet(user.id, dbData);
 
+    logger.info({ userId: user.id, walletId: newWallet.id }, "Wallet creada");
     return { success: true, data: newWallet };
   } catch (error) {
     logger.error({ err: error }, "createWalletAction failed");
@@ -56,6 +57,7 @@ export async function updateWalletAction(walletId: string, data: Partial<Wallet>
 
     const updatedWallet = await walletService.updateWallet(user.id, walletId, dbData);
 
+    logger.info({ userId: user.id, walletId }, "Wallet actualizada");
     return { success: true, data: updatedWallet };
   } catch (error) {
     logger.error({ err: error }, "updateWalletAction failed");
@@ -70,6 +72,7 @@ export async function deleteWalletAction(walletId: string) {
     if (!user) throw new Error("Unauthorized");
 
     await walletService.deleteWallet(user.id, walletId);
+    logger.info({ userId: user.id, walletId }, "Wallet borrada");
     return { success: true };
   } catch (error) {
     logger.error({ err: error }, "deleteWalletAction failed");

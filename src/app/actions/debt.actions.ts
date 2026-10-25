@@ -110,6 +110,7 @@ export async function createDebtAction(debt: Omit<Debt, "createdAt"> & { id?: st
     const dbData = mapFrontendToDb(debt);
     const newDebt = await debtService.createDebt(user.id, dbData);
 
+    logger.info({ userId: user.id, debtId: newDebt.id }, "Deuda creada");
     return { success: true, data: newDebt };
   } catch (error) {
     logger.error({ err: error }, "createDebtAction failed");
@@ -139,6 +140,7 @@ export async function updateDebtAction(debtId: string, data: Partial<Debt>) {
 
     const updatedDebt = await debtService.updateDebt(user.id, debtId, dbData);
 
+    logger.info({ userId: user.id, debtId }, "Deuda actualizada");
     return { success: true, data: updatedDebt };
   } catch (error) {
     logger.error({ err: error }, "updateDebtAction failed");
@@ -153,6 +155,7 @@ export async function deleteDebtAction(debtId: string) {
     if (!user) throw new Error("Unauthorized");
 
     await debtService.deleteDebt(user.id, debtId);
+    logger.info({ userId: user.id, debtId }, "Deuda borrada");
     return { success: true };
   } catch (error) {
     logger.error({ err: error }, "deleteDebtAction failed");
