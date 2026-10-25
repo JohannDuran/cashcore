@@ -9,10 +9,18 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Variables NEXT_PUBLIC_* que Next.js necesita en BUILD TIME.
+      # Compose las toma automáticamente del archivo .env del mismo directorio.
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
     container_name: cashcore
     restart: always
     ports:
       - "3001:3000"
+    # env_file inyecta TODAS las variables en RUNTIME (DATABASE_URL, VAPID_PRIVATE_KEY, etc.)
     env_file:
       - .env
     environment:

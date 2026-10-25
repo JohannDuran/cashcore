@@ -28,11 +28,25 @@ WORKDIR /app
 # Copiar node_modules de la etapa anterior (incluye @prisma/client generado)
 COPY --from=deps /app/node_modules ./node_modules
 
-# Copiar todo el código fuente
+# Copiar todo el código fuente (el .dockerignore excluye .env, .next, .git, etc.)
 COPY . .
 
+# ---- Variables NEXT_PUBLIC_* necesarias en BUILD TIME ----
+# Next.js incrusta las variables NEXT_PUBLIC_* dentro del bundle del navegador
+# durante "next build". Deben estar presentes aquí, NO solo en runtime.
+# docker-compose las pasa vía build.args (ver docker-compose.yml).
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
+
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
+
 # Construir la aplicación
-# Tu script build: "prisma generate && next build"
+# Tu script build: "prisma generate && next build --webpack"
 # prisma generate ya se ejecutó en deps, pero no pasa nada si corre de nuevo
 RUN corepack enable pnpm && pnpm build
 
@@ -55,13 +69,17 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copiar archivos públicos
-COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Copiar la app compilada en modo standalone
-COPY --from=builder /app/.next/standalone ./
+# Preparar el directorio .next con permisos correctos para que Next.js
+# pueda escribir la caché de prerenderizado en runtime.
+RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
 
-# Copiar assets estáticos
-COPY --from=builder /app/.next/static ./.next/static
+# Copiar la app compilada en modo standalone (con dueño nextjs)
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+
+# Copiar assets estáticos (con dueño nextjs)
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Cambiar al usuario sin privilegios
 USER nextjs
