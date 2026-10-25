@@ -40,6 +40,7 @@ export async function createGoalAction(
 
     const newGoal = await goalService.createGoal(user.id, dbData);
 
+    logger.info({ userId: user.id, goalId: newGoal.id }, "Meta creada");
     return { success: true, data: newGoal };
   } catch (error) {
     logger.error({ err: error }, "createGoalAction failed");
@@ -57,6 +58,7 @@ export async function updateGoalAction(goalId: string, data: Partial<Goal>) {
 
     const updatedGoal = await goalService.updateGoal(user.id, goalId, dbData);
 
+    logger.info({ userId: user.id, goalId }, "Meta actualizada");
     return { success: true, data: updatedGoal };
   } catch (error) {
     logger.error({ err: error }, "updateGoalAction failed");
@@ -71,6 +73,7 @@ export async function deleteGoalAction(goalId: string) {
     if (!user) throw new Error("Unauthorized");
 
     await goalService.deleteGoal(user.id, goalId);
+    logger.info({ userId: user.id, goalId }, "Meta borrada");
     return { success: true };
   } catch (error) {
     logger.error({ err: error }, "deleteGoalAction failed");

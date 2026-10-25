@@ -43,6 +43,7 @@ export async function createBudgetAction(budget: Omit<Budget, "createdAt" | "upd
 
     const newBudget = await budgetService.createBudget(user.id, dbData);
 
+    logger.info({ userId: user.id, budgetId: newBudget.id }, "Presupuesto creado");
     return { success: true, data: newBudget };
   } catch (error) {
     logger.error({ err: error }, "createBudgetAction failed");
@@ -71,6 +72,7 @@ export async function updateBudgetAction(
       dbData
     );
 
+    logger.info({ userId: user.id, budgetId }, "Presupuesto actualizado");
     return { success: true, data: updatedBudget };
   } catch (error) {
     logger.error({ err: error }, "updateBudgetAction failed");
@@ -85,6 +87,7 @@ export async function deleteBudgetAction(userId: string, budgetId: string) {
     if (!user) throw new Error("Unauthorized");
 
     await budgetService.deleteBudget(user.id, budgetId);
+    logger.info({ userId: user.id, budgetId }, "Presupuesto borrado");
     return { success: true };
   } catch (error) {
     logger.error({ err: error }, "deleteBudgetAction failed");

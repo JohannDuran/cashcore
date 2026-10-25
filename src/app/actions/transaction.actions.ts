@@ -69,6 +69,10 @@ export async function createTransactionAction(data: TransactionFormInput) {
     // 4. Limpiar caché de Next.js para que las demás páginas vean los datos frescos
     revalidatePath("/");
 
+    logger.info(
+      { userId, transactionId: tx.id, amount: dbData.amount, type: dbData.type },
+      "Transacción creada"
+    );
     return { success: true, data: tx };
   } catch (error) {
     logger.error({ err: error }, "createTransactionAction failed");
@@ -88,6 +92,7 @@ export async function updateTransactionAction(transactionId: string, data: Trans
     const tx = await transactionService.updateTransaction(userId, transactionId, dbData);
     revalidatePath("/");
 
+    logger.info({ userId, transactionId }, "Transacción actualizada");
     return { success: true, data: tx };
   } catch (error) {
     logger.error({ err: error }, "updateTransactionAction failed");
@@ -105,6 +110,7 @@ export async function deleteTransactionAction(transactionId: string) {
     await transactionService.deleteTransaction(userId, transactionId);
     revalidatePath("/");
 
+    logger.info({ userId, transactionId }, "Transacción borrada");
     return { success: true };
   } catch (error) {
     logger.error({ err: error }, "deleteTransactionAction failed");
