@@ -8,6 +8,32 @@ export function ServiceWorkerRegistrar() {
 
     let refreshing = false;
 
+    // A tab opened before a deploy can still hold an old Server Action ID.
+    // Reload once when Next reports that the action no longer exists.
+    const recoverFromStaleAction = () => {
+      const key = "cashcore:server-action-recovery";
+      const lastRecovery = Number(sessionStorage.getItem(key) || 0);
+      if (Date.now() - lastRecovery < 10_000) return;
+      sessionStorage.setItem(key, String(Date.now()));
+      window.location.reload();
+    };
+    const isStaleActionError = (value: unknown) =>
+      String(value instanceof Error ? value.message : value).includes(
+        "Failed to find Server Action"
+      );
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (!isStaleActionError(event.reason)) return;
+      event.preventDefault();
+      recoverFromStaleAction();
+    };
+    const onError = (event: ErrorEvent) => {
+      if (isStaleActionError(event.error || event.message)) {
+        recoverFromStaleAction();
+      }
+    };
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+    window.addEventListener("error", onError);
+
     // Cuando el nuevo service worker toma control, recargamos UNA vez para
     // descartar el HTML viejo (que apunta a Server Actions de un build anterior).
     const onControllerChange = () => {
@@ -18,7 +44,7 @@ export function ServiceWorkerRegistrar() {
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
 
     navigator.serviceWorker
-      .register("/sw.js")
+      .register("/sw.js", { updateViaCache: "none" })
       .then((registration) => {
         // Buscar actualizaciones del SW al cargar.
         registration.update().catch(() => {});
@@ -49,6 +75,8 @@ export function ServiceWorkerRegistrar() {
         "controllerchange",
         onControllerChange
       );
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+      window.removeEventListener("error", onError);
     };
   }, []);
 
