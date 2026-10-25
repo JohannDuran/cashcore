@@ -1,7 +1,11 @@
-const CACHE_NAME = "cashcore-v1";
+// IMPORTANTE: sube este número en cada deploy que cambie Server Actions / HTML
+// para invalidar la caché vieja en todos los dispositivos.
+const CACHE_NAME = "cashcore-v2";
+
+// Solo cacheamos recursos verdaderamente estáticos (NO páginas HTML, porque
+// el HTML contiene IDs de Server Actions que cambian en cada build y provocan
+// el error "Failed to find Server Action").
 const STATIC_ASSETS = [
-  "/",
-  "/dashboard",
   "/manifest.json",
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
@@ -30,22 +34,35 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET and cross-origin requests
+  // Solo manejamos GET del mismo origen. Las Server Actions son POST y NUNCA
+  // deben pasar por el service worker: dejamos que vayan directo a la red.
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  // Network-first for API/server actions
-  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/_next/")) {
+  // NUNCA interceptar documentos de navegación (páginas HTML). El HTML lleva
+  // incrustados los IDs de Server Actions del build actual; servir HTML viejo
+  // desde caché rompe las acciones ("Failed to find Server Action").
+  // Si la red falla, solo entonces mostramos un fallback cacheado (offline).
+  if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request).catch(() => caches.match(request))
+      fetch(request).catch(() => caches.match("/offline") || caches.match("/"))
     );
     return;
   }
 
-  // Cache-first for static assets
-  if (url.pathname.match(/\.(png|jpg|svg|ico|woff2|css|js)$/)) {
+  // Network-first (sin cachear) para API, server actions y chunks de Next.
+  // Los chunks de _next llevan hash en el nombre: si cambia el build, cambia
+  // la URL, así que no hace falta cachearlos manualmente.
+  if (url.pathname.startsWith("/api") || url.pathname.startsWith("/_next/")) {
+    event.respondWith(fetch(request).catch(() => caches.match(request)));
+    return;
+  }
+
+  // Cache-first SOLO para assets estáticos con extensión (imágenes, fuentes).
+  if (url.pathname.match(/\.(png|jpg|jpeg|svg|ico|woff2|gif|webp)$/)) {
     event.respondWith(
       caches.match(request).then((cached) =>
-        cached ?? fetch(request).then((res) => {
+        cached ??
+        fetch(request).then((res) => {
           const clone = res.clone();
           caches.open(CACHE_NAME).then((c) => c.put(request, clone));
           return res;
@@ -55,16 +72,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Network-first for pages
-  event.respondWith(
-    fetch(request)
-      .then((res) => {
-        const clone = res.clone();
-        caches.open(CACHE_NAME).then((c) => c.put(request, clone));
-        return res;
-      })
-      .catch(() => caches.match(request))
-  );
+  // Todo lo demás: red directa, sin caché.
+  event.respondWith(fetch(request).catch(() => caches.match(request)));
 });
 
 // ==================== PUSH NOTIFICATIONS ====================

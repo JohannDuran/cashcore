@@ -1,0 +1,43 @@
+# Dependencias (se instalan dentro del contenedor)
+node_modules
+.pnpm-store
+
+# Build artifacts (se generan dentro del contenedor)
+.next
+out
+dist
+build
+
+# Variables de entorno (se inyectan vía env_file en docker-compose)
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+.github
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+*.log
+
+# Kiro / agentes
+.kiro
+.agents
+.commandcode
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Testing / coverage
+coverage
+.nyc_output
+
+# Misc
+README.md
+*.md
