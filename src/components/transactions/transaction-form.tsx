@@ -7,6 +7,7 @@ import {
   generateId,
   formatCurrency,
   getLocalDateInputValue,
+  getWalletEffectiveBalance,
   toLocalCalendarDate,
 } from "@/lib/utils";
 import { createTransactionAction, updateTransactionAction, deleteTransactionAction } from "@/app/actions/transaction.actions";
@@ -164,8 +165,9 @@ export function TransactionFormModal() {
     const sourceDebt = debts.find((d) => d.id === currentWalletId);
 
     if (sourceWallet) {
-      if (sourceWallet.balance < numAmount) {
-        setFundsError(`Fondos insuficientes. Disponible: ${formatCurrency(sourceWallet.balance, sourceWallet.currency)}`);
+      const effectiveBalance = getWalletEffectiveBalance(sourceWallet);
+      if (effectiveBalance < numAmount) {
+        setFundsError(`Fondos insuficientes. Disponible: ${formatCurrency(effectiveBalance, sourceWallet.currency)}`);
       } else {
         setFundsError(null);
       }
@@ -464,10 +466,11 @@ export function TransactionFormModal() {
     const sourceDebt = debts.find((d) => d.id === currentWalletId);
     
     if (sourceWallet) {
-      const newBalance = sourceWallet.balance - numAmount;
+      const currentBalance = getWalletEffectiveBalance(sourceWallet);
+      const newBalance = currentBalance - numAmount;
       return {
         name: sourceWallet.name,
-        currentBalance: sourceWallet.balance,
+        currentBalance,
         newBalance,
         currency: sourceWallet.currency,
         isDebt: false,

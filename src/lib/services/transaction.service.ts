@@ -1,6 +1,7 @@
 import { prisma } from '../prisma';
 import type { Prisma } from '@prisma/client';
 import { assertTransactionReferences, resolveAccountType } from './ownership';
+import { calculateInterestProjection } from '@/lib/utils';
 
 type Tx = Prisma.TransactionClient;
 
@@ -33,6 +34,51 @@ function splitTransactionPayload(data: Record<string, unknown>) {
   }
   const tagIds = Array.isArray(data.tagIds) ? (data.tagIds as string[]) : [];
   return { clean, tagIds };
+}
+
+async function realizeWalletInterest(
+  tx: Tx,
+  userId: string,
+  walletIds: Array<string | null | undefined>
+) {
+  const ids = [...new Set(walletIds.filter((id): id is string => !!id))];
+  if (ids.length === 0) return;
+
+  const wallets = await tx.wallet.findMany({
+    where: { userId, id: { in: ids } },
+    select: {
+      id: true,
+      balance: true,
+      interestEnabled: true,
+      interestRate: true,
+      interestStartDate: true,
+      createdAt: true,
+    },
+  });
+
+  for (const wallet of wallets) {
+    if (!wallet.interestEnabled || !wallet.interestRate || wallet.interestRate <= 0) continue;
+
+    const startDate = wallet.interestStartDate || wallet.createdAt;
+    const projection = calculateInterestProjection(
+      wallet.balance,
+      wallet.interestRate,
+      startDate,
+      new Date()
+    );
+    const effectiveBalance = Number(projection.projectedBalance.toFixed(2));
+
+    if (effectiveBalance !== wallet.balance) {
+      await tx.wallet.update({
+        where: { id: wallet.id, userId },
+        data: {
+          balance: effectiveBalance,
+          // El interés ya quedó incorporado al saldo; empezar un nuevo periodo.
+          interestStartDate: new Date(),
+        },
+      });
+    }
+  }
 }
 
 export const transactionService = {
@@ -100,6 +146,8 @@ export const transactionService = {
         }
       }
 
+      await realizeWalletInterest(tx, userId, [actualWalletId, actualTransferToWalletId]);
+
       // Preparar los datos para crear, removiendo los campos originales y agregando los correctos
       const createData = { ...clean };
       delete createData.walletId;
@@ -150,8 +198,6 @@ export const transactionService = {
         tagIds: tagIdsProvided ? tagIds : undefined,
       });
 
-      await revertTransactionEffects(tx, userId, oldTransaction);
-
       // Determinar el tipo de cuenta origen y destino
       let actualWalletId: string | null = null;
       let actualDebtId: string | null = null;
@@ -175,6 +221,14 @@ export const transactionService = {
           actualTransferToDebtId = transferToId;
         }
       }
+
+      await realizeWalletInterest(tx, userId, [
+        oldTransaction.walletId,
+        oldTransaction.transferToWalletId,
+        actualWalletId,
+        actualTransferToWalletId,
+      ]);
+      await revertTransactionEffects(tx, userId, oldTransaction);
 
       // Preparar los datos para actualizar
       const updateData = { ...clean };
@@ -210,6 +264,7 @@ export const transactionService = {
         throw new Error(`Transaction not found: ${transactionId}`);
       }
 
+      await realizeWalletInterest(tx, userId, [transaction.walletId, transaction.transferToWalletId]);
       await revertTransactionEffects(tx, userId, transaction);
 
       // Prisma 6: delete where solo acepta campos únicos (PK). El ownership ya fue

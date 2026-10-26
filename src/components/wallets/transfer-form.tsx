@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useCashCoreStore } from "@/store";
-import { generateId, getLocalDateInputValue } from "@/lib/utils";
+import { generateId, getLocalDateInputValue, getWalletEffectiveBalance } from "@/lib/utils";
 import { createTransactionAction } from "@/app/actions/transaction.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +62,11 @@ export function TransferFormModal() {
     }
 
     const fromWallet = wallets.find((w) => w.id === fromWalletId);
+    const availableBalance = fromWallet ? getWalletEffectiveBalance(fromWallet) : 0;
+    if (numAmount > availableBalance) {
+      toast.error(`Fondos insuficientes. Disponible: ${availableBalance.toFixed(2)} ${fromWallet?.currency || "MXN"}`);
+      return;
+    }
 
     const generatedId = generateId();
     const txData = {
