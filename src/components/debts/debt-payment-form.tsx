@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useCashCoreStore } from "@/store";
-import { cn, generateId, formatCurrency } from "@/lib/utils";
+import { cn, generateId, formatCurrency, getLocalDateInputValue } from "@/lib/utils";
 import { createTransactionAction } from "@/app/actions/transaction.actions";
 import type { Debt, Currency } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -97,7 +97,7 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
   // ── Form state ──
   const [amount, setAmount] = useState("");
   const [walletId, setWalletId] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(getLocalDateInputValue);
   const [note, setNote] = useState("");
   const [showNote, setShowNote] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,7 +108,7 @@ export function DebtPaymentForm({ debt, open, onOpenChange }: DebtPaymentFormPro
       // Pre-fill with minimum payment or empty
       setAmount(debt.minimumPayment?.toString() || "");
       setWalletId(wallets.filter(w => !w.isArchived)[0]?.id || "");
-      setDate(new Date().toISOString().split("T")[0]);
+       setDate(getLocalDateInputValue());
       setNote("");
       setShowNote(false);
     }

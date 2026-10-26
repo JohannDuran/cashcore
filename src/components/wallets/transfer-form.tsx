@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useCashCoreStore } from "@/store";
-import { generateId } from "@/lib/utils";
+import { generateId, getLocalDateInputValue } from "@/lib/utils";
 import { createTransactionAction } from "@/app/actions/transaction.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,7 @@ export function TransferFormModal() {
   const [toWalletId, setToWalletId] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(getLocalDateInputValue);
 
   function handleClose() {
     setActiveModal(null);
@@ -41,7 +41,7 @@ export function TransferFormModal() {
     setToWalletId("");
     setAmount("");
     setDescription("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(getLocalDateInputValue());
   }
 
   function handleSubmit(e: React.FormEvent) {

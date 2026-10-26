@@ -2,7 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { useCashCoreStore } from "@/store";
-import { cn, generateId, formatCurrency } from "@/lib/utils";
+import {
+  cn,
+  generateId,
+  formatCurrency,
+  getLocalDateInputValue,
+  toLocalCalendarDate,
+} from "@/lib/utils";
 import { createTransactionAction, updateTransactionAction, deleteTransactionAction } from "@/app/actions/transaction.actions";
 import { createWalletAction } from "@/app/actions/wallet.actions";
 import { createCategoryAction } from "@/app/actions/category.actions";
@@ -96,7 +102,7 @@ export function TransactionFormModal() {
   const [categoryId, setCategoryId] = useState("");
   const [description, setDescription] = useState("");
   const [note, setNote] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(getLocalDateInputValue);
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<"daily" | "weekly" | "monthly" | "yearly">("monthly");
   const [transferToWalletId, setTransferToWalletId] = useState("");
@@ -199,7 +205,7 @@ export function TransactionFormModal() {
         (typeof editTx.date === 'string' && editTx.date.includes('T') 
           ? editTx.date.split('T')[0] 
           : editTx.date) 
-        : new Date().toISOString().split("T")[0];
+        : getLocalDateInputValue();
       setDate(dateValue);
       setIsRecurring(editTx.isRecurring);
       setFrequency(editTx.recurringRule?.frequency || "monthly");
@@ -240,7 +246,7 @@ export function TransactionFormModal() {
     setCategoryId("");
     latestCategoryId.current = "";
     setDescription(""); setNote("");
-    setDate(new Date().toISOString().split("T")[0]);
+    setDate(getLocalDateInputValue());
     setIsRecurring(false); setFrequency("monthly");
     setIsMsi(false); setMsiMonths(3);
     setTransferToWalletId(""); setShowNote(false); setSelectedTagIds([]);
@@ -391,7 +397,7 @@ export function TransactionFormModal() {
       debtId: isSourceDebt ? currentWalletId : null,
       userId: user?.id || "",
       categoryId: type === "transfer" ? "cat-transfer" : currentCategoryId,
-      description: description || `${typeLabels[type]} - ${new Date(date).toLocaleDateString("es-MX")}`,
+       description: description || `${typeLabels[type]} - ${toLocalCalendarDate(date).toLocaleDateString("es-MX")}`,
       note: note || undefined, date, isRecurring,
       recurringRule: isRecurring ? { frequency, interval: 1 } : undefined,
       tags: selectedTagIds,

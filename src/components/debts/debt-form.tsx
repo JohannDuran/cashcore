@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useCashCoreStore } from "@/store";
-import { cn, generateId } from "@/lib/utils";
+import { cn, generateId, getLocalDateInputValue } from "@/lib/utils";
 import type { DebtType, Debt, Currency } from "@/types";
 import { createDebtAction, updateDebtAction, deleteDebtAction } from "@/app/actions/debt.actions";
 import { Button } from "@/components/ui/button";
@@ -166,7 +166,7 @@ export function DebtFormModal() {
     setMonthlyPaymentEnabled(false);
     setNextPaymentDate("");
     setNextPaymentDateManual(false);
-    setStartDate(new Date().toISOString().split("T")[0]);
+    setStartDate(getLocalDateInputValue());
     setEndDate("");
     setIcon("CreditCard");
     setColor("#EF4444");
@@ -190,7 +190,7 @@ export function DebtFormModal() {
       setNextPaymentDate(existingNextDate);
       // Si ya hay una fecha guardada, se respeta como manual (no se autocalcula al editar)
       setNextPaymentDateManual(!!existingNextDate);
-      setStartDate(toDateInputValue(editDebt.startDate) || new Date().toISOString().split("T")[0]);
+       setStartDate(toDateInputValue(editDebt.startDate) || getLocalDateInputValue());
       setEndDate(toDateInputValue(editDebt.endDate));
       setIcon(editDebt.icon);
       setColor(editDebt.color);
