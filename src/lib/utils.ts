@@ -24,6 +24,18 @@ export function getLocalDateInputValue(date: Date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+/** Extrae el día de calendario sin convertir una fecha de base de datos por zona horaria. */
+export function getCalendarDateKey(value: string | Date): string {
+  if (typeof value === "string") {
+    const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (match) return match[1];
+    const parsed = new Date(value);
+    return `${parsed.getUTCFullYear()}-${String(parsed.getUTCMonth() + 1).padStart(2, "0")}-${String(parsed.getUTCDate()).padStart(2, "0")}`;
+  }
+
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
+}
+
 /**
  * Convierte un valor de fecha a una Date a medianoche LOCAL que representa su
  * DÍA DE CALENDARIO real, sin importar la zona horaria.
@@ -204,4 +216,22 @@ export function calculateInterestProjection(
     annualYield,
     daysElapsed,
   };
+}
+
+/** Saldo disponible, incluyendo el interés acumulado que muestra la UI. */
+export function getWalletEffectiveBalance(
+  wallet: Pick<Wallet, "balance" | "interestEnabled" | "interestRate" | "interestStartDate" | "createdAt">,
+  now: Date = new Date()
+): number {
+  if (!wallet.interestEnabled || !wallet.interestRate || wallet.interestRate <= 0) {
+    return wallet.balance;
+  }
+
+  const startDate = wallet.interestStartDate
+    ? new Date(wallet.interestStartDate)
+    : new Date(wallet.createdAt);
+  const projection = calculateInterestProjection(wallet.balance, wallet.interestRate, startDate, now);
+
+  // El saldo visible y transferible se maneja con precisión monetaria de 2 decimales.
+  return Number(projection.projectedBalance.toFixed(2));
 }

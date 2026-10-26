@@ -5,15 +5,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CurrencyDisplay } from "@/components/shared/currency-display";
 import { IconRenderer } from "@/components/shared/icon-renderer";
 import { Progress } from "@/components/ui/progress";
-import { formatCurrency, getBudgetBarColor } from "@/lib/utils";
+import { formatCurrency, getBudgetBarColor, getWalletEffectiveBalance } from "@/lib/utils";
 import { budgetPeriodLabels } from "@/lib/constants";
-import type { Budget, Transaction, Category } from "@/types";
+import type { Budget, Transaction, Category, Wallet } from "@/types";
 import { Calendar, TrendingUp, AlertTriangle } from "lucide-react";
 
 interface BudgetDashboardProps {
   budgets: Budget[];
   transactions: Transaction[];
   categories: Category[];
+  wallets: Wallet[];
 }
 
 function toDate(v: string | Date): Date {
@@ -54,20 +55,17 @@ function getCategoryBreakdown(
   transactions: Transaction[],
   categories: Category[]
 ): CategorySpent[] {
-  const startDate = toDate(budget.startDate);
-  const now = new Date();
-  let endBound = now;
-  if (budget.endDate) {
-    const parsedEnd = toDate(budget.endDate as string | Date);
-    endBound = parsedEnd < now ? parsedEnd : now;
-  }
+  const startDate = calendarDay(budget.startDate);
+  const endBound = budget.endDate
+    ? calendarDay(budget.endDate as string | Date)
+    : calendarDay(new Date());
 
   const matching = transactions.filter(
     (t) =>
       t.type === "expense" &&
       budget.categoryIds.includes(t.categoryId) &&
-      new Date(t.date) >= startDate &&
-      new Date(t.date) <= endBound &&
+      calendarDay(t.date) >= startDate &&
+      calendarDay(t.date) <= endBound &&
       // budget.walletIds puede incluir tarjetas de crédito (deudas): revisar walletId y debtId.
       (budget.walletIds.length === 0 ||
         (t.walletId && budget.walletIds.includes(t.walletId)) ||
@@ -121,14 +119,20 @@ function getSpentToday(budget: Budget, transactions: Transaction[]): number {
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
-export function BudgetDashboard({ budgets, transactions, categories }: BudgetDashboardProps) {
+export function BudgetDashboard({ budgets, transactions, categories, wallets }: BudgetDashboardProps) {
   const budgetAnalytics = useMemo(() => {
     return budgets.map((budget) => {
       const endDate = budget.endDate
         ? toDate(budget.endDate as string | Date)
         : getPeriodEndDate(budget.startDate, budget.period);
       const daysRemaining = getDaysRemaining(endDate);
-      const remaining = budget.amount - budget.spent;
+      const budgetRemaining = budget.amount - budget.spent;
+      const linkedBalance = budget.linkWalletBalance
+        ? wallets
+            .filter((wallet) => budget.walletIds.includes(wallet.id))
+            .reduce((sum, wallet) => sum + getWalletEffectiveBalance(wallet), 0)
+        : budgetRemaining;
+      const remaining = budget.linkWalletBalance ? linkedBalance : budgetRemaining;
       const dailySuggestion = remaining > 0 ? remaining / daysRemaining : 0;
       const categoryBreakdown = getCategoryBreakdown(budget, transactions, categories);
       const spentToday = getSpentToday(budget, transactions);
@@ -143,7 +147,7 @@ export function BudgetDashboard({ budgets, transactions, categories }: BudgetDas
         spentToday,
       };
     });
-  }, [budgets, transactions, categories]);
+  }, [budgets, transactions, categories, wallets]);
 
   if (budgets.length === 0) return null;
 

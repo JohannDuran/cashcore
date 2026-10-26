@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { IconRenderer } from "@/components/shared/icon-renderer";
-import { formatCurrency, getBudgetBarColor } from "@/lib/utils";
+import { formatCurrency, getBudgetBarColor, getWalletEffectiveBalance } from "@/lib/utils";
 import { budgetPeriodLabels } from "@/lib/constants";
 import type { Budget, Category, Wallet, Debt } from "@/types";
 import { Edit, AlertTriangle, Wallet as WalletIcon, CreditCard } from "lucide-react";
@@ -20,7 +20,6 @@ interface BudgetCardProps {
 
 export function BudgetCard({ budget, categories, wallets, debts, onEdit }: BudgetCardProps) {
   const percentage = budget.amount > 0 ? Math.round((budget.spent / budget.amount) * 100) : 0;
-  const remaining = budget.amount - budget.spent;
   const isExceeded = percentage > 100;
   const isWarning = percentage > 90 && !isExceeded;
 
@@ -36,6 +35,11 @@ export function BudgetCard({ budget, categories, wallets, debts, onEdit }: Budge
   const budgetWallets = budgetWalletIds
     .map((id) => wallets.find((w) => w.id === id))
     .filter(Boolean) as Wallet[];
+  const budgetRemaining = budget.amount - budget.spent;
+  const linkedBalance = budget.linkWalletBalance
+    ? budgetWallets.reduce((sum, wallet) => sum + getWalletEffectiveBalance(wallet), 0)
+    : 0;
+  const remaining = budget.linkWalletBalance ? linkedBalance : budgetRemaining;
   
   const budgetCreditCards = budgetCreditCardIds
     .map((id) => debts.find((d) => d.id === id && d.type === "credit_card"))
@@ -103,8 +107,8 @@ export function BudgetCard({ budget, categories, wallets, debts, onEdit }: Budge
             </span>
             <span className="text-muted-foreground">
               {remaining >= 0
-                ? `Quedan ${formatCurrency(remaining)}`
-                : `Excedido por ${formatCurrency(Math.abs(remaining))}`}
+                ? `${budget.linkWalletBalance ? "Saldo disponible" : "Quedan"} ${formatCurrency(remaining)}`
+                : `${budget.linkWalletBalance ? "Saldo negativo" : "Excedido por"} ${formatCurrency(Math.abs(remaining))}`}
             </span>
           </div>
 
@@ -158,6 +162,20 @@ export function BudgetCard({ budget, categories, wallets, debts, onEdit }: Budge
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
               ↩ Rollover activado
             </p>
+          )}
+
+          {budget.linkWalletBalance && (
+            <div className="space-y-1 text-[10px] text-muted-foreground">
+              <p>Saldo disponible según las wallets vinculadas</p>
+              <div className="flex items-center justify-between border-t border-border/60 pt-1">
+                <span>Límite restante por categorías</span>
+                <span className={cn("font-medium", budgetRemaining < 0 && "text-expense")}>
+                  {budgetRemaining >= 0
+                    ? formatCurrency(budgetRemaining)
+                    : `Excedido por ${formatCurrency(Math.abs(budgetRemaining))}`}
+                </span>
+              </div>
+            </div>
           )}
         </div>
       </CardContent>

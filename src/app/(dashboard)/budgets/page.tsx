@@ -97,6 +97,7 @@ export default function BudgetsPage() {
           budgets={activeBudgets}
           transactions={transactions}
           categories={categories}
+          wallets={wallets}
         />
       )}
 

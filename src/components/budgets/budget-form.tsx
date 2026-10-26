@@ -54,6 +54,7 @@ export function BudgetFormModal() {
   const [walletIds, setWalletIds] = useState<string[]>([]);
   const [creditCardDebtIds, setCreditCardDebtIds] = useState<string[]>([]);
   const [rollover, setRollover] = useState(false);
+  const [linkWalletBalance, setLinkWalletBalance] = useState(false);
   const [startDate, setStartDate] = useState(getLocalDateInputValue);
   const [endDate, setEndDate] = useState(() => getAutoEndDate(getLocalDateInputValue(), "monthly"));
   const [endDateManuallySet, setEndDateManuallySet] = useState(false);
@@ -97,6 +98,7 @@ export function BudgetFormModal() {
       setWalletIds(walletOnlyIds);
       setCreditCardDebtIds(debtOnlyIds);
       setRollover(editBudget.rollover);
+      setLinkWalletBalance(editBudget.linkWalletBalance === true);
       const start = toDateString(editBudget.startDate);
       setStartDate(start);
       const existingEnd = editBudget.endDate
@@ -117,6 +119,7 @@ export function BudgetFormModal() {
     setWalletIds([]);
     setCreditCardDebtIds([]);
     setRollover(false);
+    setLinkWalletBalance(false);
     const today = getLocalDateInputValue();
     setStartDate(today);
     setEndDate(getAutoEndDate(today, "monthly"));
@@ -169,6 +172,10 @@ export function BudgetFormModal() {
       toast.error("Selecciona al menos una categoría");
       return;
     }
+    if (linkWalletBalance && walletIds.length === 0) {
+      toast.error("Selecciona al menos una wallet para vincular su saldo");
+      return;
+    }
 
     const firstCat = categories.find((c) => c.id === categoryIds[0]);
     const optimisticId = isEditing && editBudget ? editBudget.id : generateId();
@@ -187,6 +194,7 @@ export function BudgetFormModal() {
       startDate,
       endDate,
       rollover,
+      linkWalletBalance,
       isActive: true,
     };
 
@@ -376,6 +384,18 @@ export function BudgetFormModal() {
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border border-border bg-muted/30 p-3">
+            <div>
+              <Label className="cursor-pointer" onClick={() => setLinkWalletBalance(!linkWalletBalance)}>
+                Vincular saldo de wallets
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Muestra como disponible el saldo actual de las wallets seleccionadas.
+              </p>
+            </div>
+            <Switch checked={linkWalletBalance} onCheckedChange={setLinkWalletBalance} />
           </div>
 
           {/* Credit Card Debts Section */}

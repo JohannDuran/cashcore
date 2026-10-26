@@ -103,6 +103,7 @@ export interface Budget {
   startDate: string;
   endDate?: string;
   rollover: boolean;
+  linkWalletBalance?: boolean;
   isActive: boolean;
   createdAt: Date;
 }

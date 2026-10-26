@@ -142,6 +142,7 @@ model Budget {
   startDate       DateTime  @db.Date
   endDate         DateTime? @db.Date
   rollover        Boolean   @default(false)
+  linkWalletBalance Boolean @default(false)
   trackHistorical Boolean   @default(false)
   isActive        Boolean   @default(true)
   createdAt       DateTime  @default(now())

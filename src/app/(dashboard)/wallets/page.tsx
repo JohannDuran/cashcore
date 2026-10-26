@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { useState, useEffect } from "react";
 import type { Wallet } from "@/types";
 import { deleteWalletAction } from "@/app/actions/wallet.actions";
+import { getWalletEffectiveBalance } from "@/lib/utils";
 
 function isDebtWallet(wallet: Wallet) {
   return wallet.type === "credit" || wallet.type === "loan";
@@ -73,7 +74,10 @@ export default function WalletsPage() {
   const activeWallets = wallets.filter((w) => !w.isArchived);
   const assetWallets = activeWallets.filter((wallet) => !isDebtWallet(wallet));
   const debtWallets = activeWallets.filter(isDebtWallet);
-  const availableBalance = assetWallets.reduce((sum, wallet) => sum + wallet.balance, 0);
+  const availableBalance = assetWallets.reduce(
+    (sum, wallet) => sum + getWalletEffectiveBalance(wallet, currentDate),
+    0
+  );
   const debtBalanceInFavor = debtWallets.reduce(
     (sum, wallet) => sum + Math.max(wallet.balance, 0),
     0

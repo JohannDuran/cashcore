@@ -11,7 +11,12 @@ import {
   mockSubscriptions,
   mockDebts,
 } from "@/lib/constants";
-import { generateId } from "@/lib/utils";
+import {
+  generateId,
+  getCalendarDateKey,
+  getLocalDateInputValue,
+  getWalletEffectiveBalance,
+} from "@/lib/utils";
 
 // ──────────────────────────────────────────────
 // STORE INTERFACE
@@ -99,29 +104,18 @@ function calculateBudgetSpent(
   budget: Budget,
   transactions: Transaction[]
 ): number {
-  const startDate = (budget.startDate as any) instanceof Date
-    ? (budget.startDate as any) as Date
-    : new Date((budget.startDate || "") + "T00:00:00");
-  if (isNaN(startDate.getTime())) return 0;
-
-  const now = new Date();
-  let endDate = now;
-  if (budget.endDate) {
-    const parsedEnd = (budget.endDate as any) instanceof Date
-      ? (budget.endDate as any) as Date
-      : new Date((budget.endDate || "") + "T23:59:59");
-    if (!isNaN(parsedEnd.getTime())) {
-      endDate = parsedEnd < now ? parsedEnd : now;
-    }
-  }
+  const startDate = getCalendarDateKey(budget.startDate);
+  const endDate = budget.endDate
+    ? getCalendarDateKey(budget.endDate)
+    : getLocalDateInputValue();
 
   return transactions
     .filter(
       (t) =>
         t.type === "expense" &&
         budget.categoryIds.includes(t.categoryId) &&
-        new Date(t.date) >= startDate &&
-        new Date(t.date) <= endDate &&
+        getCalendarDateKey(t.date) >= startDate &&
+        getCalendarDateKey(t.date) <= endDate &&
         // budget.walletIds puede contener IDs de wallets Y de tarjetas de crédito/deudas.
         // Una compra puede venir con walletId (cuenta normal) o con debtId (tarjeta),
         // por eso hay que verificar ambos; antes solo se revisaba walletId y las compras
@@ -183,21 +177,29 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
         updatedAt: new Date(),
       };
 
-      // Update wallet balance
+      // Realiza el interés acumulado antes de aplicar el movimiento para que
+      // el saldo local coincida con el saldo visible y transferible.
       const wallets = state.wallets.map((w) => {
-        if (w.id === newTx.walletId) {
+        const isAffectedWallet = w.id === newTx.walletId || w.id === newTx.transferToWalletId;
+        const effectiveBalance = isAffectedWallet ? getWalletEffectiveBalance(w) : w.balance;
+        const interestWasRealized = isAffectedWallet && effectiveBalance !== w.balance;
+        const currentWallet = interestWasRealized
+          ? { ...w, balance: effectiveBalance, interestStartDate: new Date() }
+          : w;
+
+        if (currentWallet.id === newTx.walletId) {
           if (newTx.type === "expense" || newTx.type === "transfer") {
-            return { ...w, balance: w.balance - newTx.amount };
+            return { ...currentWallet, balance: currentWallet.balance - newTx.amount };
           }
           if (newTx.type === "income") {
-            return { ...w, balance: w.balance + newTx.amount };
+            return { ...currentWallet, balance: currentWallet.balance + newTx.amount };
           }
         }
         // For transfers, increment destination wallet
-        if (newTx.type === "transfer" && w.id === newTx.transferToWalletId) {
-          return { ...w, balance: w.balance + newTx.amount };
+        if (newTx.type === "transfer" && currentWallet.id === newTx.transferToWalletId) {
+          return { ...currentWallet, balance: currentWallet.balance + newTx.amount };
         }
-        return w;
+        return currentWallet;
       });
 
       const debts = state.debts.map((d) => {
@@ -232,20 +234,26 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
       const oldTx = state.transactions.find((t) => t.id === id);
       if (!oldTx) return state;
 
-      // Revert old transaction effect on wallet
-      let wallets = state.wallets.map((w) => {
-        if (w.id === oldTx.walletId) {
+       // Realiza el interés antes de revertir el movimiento anterior.
+       let wallets = state.wallets.map((w) => {
+        const isAffectedWallet = w.id === oldTx.walletId || w.id === oldTx.transferToWalletId;
+        const effectiveBalance = isAffectedWallet ? getWalletEffectiveBalance(w) : w.balance;
+        const currentWallet = isAffectedWallet && effectiveBalance !== w.balance
+          ? { ...w, balance: effectiveBalance, interestStartDate: new Date() }
+          : w;
+
+        if (currentWallet.id === oldTx.walletId) {
           if (oldTx.type === "expense" || oldTx.type === "transfer") {
-            return { ...w, balance: w.balance + oldTx.amount };
+            return { ...currentWallet, balance: currentWallet.balance + oldTx.amount };
           }
           if (oldTx.type === "income") {
-            return { ...w, balance: w.balance - oldTx.amount };
+            return { ...currentWallet, balance: currentWallet.balance - oldTx.amount };
           }
         }
-        if (oldTx.type === "transfer" && w.id === oldTx.transferToWalletId) {
-          return { ...w, balance: w.balance - oldTx.amount };
+        if (oldTx.type === "transfer" && currentWallet.id === oldTx.transferToWalletId) {
+          return { ...currentWallet, balance: currentWallet.balance - oldTx.amount };
         }
-        return w;
+        return currentWallet;
       });
 
       // Revert old transaction effect on debt
@@ -268,18 +276,24 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
 
       // Apply new transaction effect on wallets
       wallets = wallets.map((w) => {
-        if (w.id === updatedTx.walletId) {
+        const isAffectedWallet = w.id === updatedTx.walletId || w.id === updatedTx.transferToWalletId;
+        const effectiveBalance = isAffectedWallet ? getWalletEffectiveBalance(w) : w.balance;
+        const currentWallet = isAffectedWallet && effectiveBalance !== w.balance
+          ? { ...w, balance: effectiveBalance, interestStartDate: new Date() }
+          : w;
+
+        if (currentWallet.id === updatedTx.walletId) {
           if (updatedTx.type === "expense" || updatedTx.type === "transfer") {
-            return { ...w, balance: w.balance - updatedTx.amount };
+            return { ...currentWallet, balance: currentWallet.balance - updatedTx.amount };
           }
           if (updatedTx.type === "income") {
-            return { ...w, balance: w.balance + updatedTx.amount };
+            return { ...currentWallet, balance: currentWallet.balance + updatedTx.amount };
           }
         }
-        if (updatedTx.type === "transfer" && w.id === updatedTx.transferToWalletId) {
-          return { ...w, balance: w.balance + updatedTx.amount };
+        if (updatedTx.type === "transfer" && currentWallet.id === updatedTx.transferToWalletId) {
+          return { ...currentWallet, balance: currentWallet.balance + updatedTx.amount };
         }
-        return w;
+        return currentWallet;
       });
 
       // Apply new transaction effect on debts
@@ -313,20 +327,26 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
       const tx = state.transactions.find((t) => t.id === id);
       if (!tx) return state;
 
-      // Revert wallet balance
-      const wallets = state.wallets.map((w) => {
-        if (w.id === tx.walletId) {
+       // Realiza el interés antes de revertir el movimiento eliminado.
+       const wallets = state.wallets.map((w) => {
+        const isAffectedWallet = w.id === tx.walletId || w.id === tx.transferToWalletId;
+        const effectiveBalance = isAffectedWallet ? getWalletEffectiveBalance(w) : w.balance;
+        const currentWallet = isAffectedWallet && effectiveBalance !== w.balance
+          ? { ...w, balance: effectiveBalance, interestStartDate: new Date() }
+          : w;
+
+        if (currentWallet.id === tx.walletId) {
           if (tx.type === "expense" || tx.type === "transfer") {
-            return { ...w, balance: w.balance + tx.amount };
+            return { ...currentWallet, balance: currentWallet.balance + tx.amount };
           }
           if (tx.type === "income") {
-            return { ...w, balance: w.balance - tx.amount };
+            return { ...currentWallet, balance: currentWallet.balance - tx.amount };
           }
         }
-        if (tx.type === "transfer" && w.id === tx.transferToWalletId) {
-          return { ...w, balance: w.balance - tx.amount };
+        if (tx.type === "transfer" && currentWallet.id === tx.transferToWalletId) {
+          return { ...currentWallet, balance: currentWallet.balance - tx.amount };
         }
-        return w;
+        return currentWallet;
       });
 
       // Revert debt balance

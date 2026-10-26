@@ -8,7 +8,7 @@ import { IconRenderer } from "@/components/shared/icon-renderer";
 import { walletTypeLabels } from "@/lib/constants";
 import type { Transaction, Wallet } from "@/types";
 import { Edit } from "lucide-react";
-import { cn, calculateInterestProjection } from "@/lib/utils";
+import { cn, calculateInterestProjection, getWalletEffectiveBalance } from "@/lib/utils";
 import { useMemo } from "react";
 
 interface WalletCardProps {
@@ -134,7 +134,7 @@ export function WalletCard({ wallet, onEdit, onClick, currentDate, transactions 
         ) : (
           <>
             <CurrencyDisplay
-              amount={hasInterest ? interestProjection!.projectedBalance : wallet.balance}
+              amount={hasInterest ? getWalletEffectiveBalance(wallet, currentDate) : wallet.balance}
               currency={wallet.currency}
               showSign={wallet.balance < 0}
               size="lg"
