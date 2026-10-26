@@ -167,7 +167,6 @@ export const useCashCoreStore = create<CashCoreState>((set, get) => ({
     })
   },
   logout: () => {
-    console.log("🔴 logout ejecutado");
     set({ user: null });
     localStorage.removeItem("user");
     sessionStorage.removeItem("user");

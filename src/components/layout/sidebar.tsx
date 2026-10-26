@@ -46,7 +46,6 @@ export function Sidebar() {
     logout();
     router.push("/login");
   };
-  console.log("Sidebar - user desde store:", user);
   return (
     <TooltipProvider delayDuration={0}>
       <aside

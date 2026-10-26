@@ -19,6 +19,11 @@ export function formatCurrency(
   }).format(amount);
 }
 
+/** Devuelve una fecha para inputs type=date usando la zona local del navegador. */
+export function getLocalDateInputValue(date: Date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 /**
  * Convierte un valor de fecha a una Date a medianoche LOCAL que representa su
  * DÍA DE CALENDARIO real, sin importar la zona horaria.

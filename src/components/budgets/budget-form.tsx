@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useCashCoreStore } from "@/store";
-import { cn, generateId } from "@/lib/utils";
+import { cn, generateId, getLocalDateInputValue } from "@/lib/utils";
 import type { BudgetPeriod, Budget } from "@/types";
 import { createBudgetAction, updateBudgetAction, deleteBudgetAction } from "@/app/actions/budget.actions";
 import { Button } from "@/components/ui/button";
@@ -54,8 +54,8 @@ export function BudgetFormModal() {
   const [walletIds, setWalletIds] = useState<string[]>([]);
   const [creditCardDebtIds, setCreditCardDebtIds] = useState<string[]>([]);
   const [rollover, setRollover] = useState(false);
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [endDate, setEndDate] = useState(() => getAutoEndDate(new Date().toISOString().split("T")[0], "monthly"));
+  const [startDate, setStartDate] = useState(getLocalDateInputValue);
+  const [endDate, setEndDate] = useState(() => getAutoEndDate(getLocalDateInputValue(), "monthly"));
   const [endDateManuallySet, setEndDateManuallySet] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -69,12 +69,12 @@ export function BudgetFormModal() {
     if (isNaN(d.getTime())) return "";
     const days = periodOptions.find((p) => p.value === prd)?.days ?? 30;
     d.setDate(d.getDate() + days);
-    return d.toISOString().split("T")[0];
+    return getLocalDateInputValue(d);
   }
 
   function toDateString(v: string | Date | undefined | null): string {
-    if (!v) return new Date().toISOString().split("T")[0];
-    if (v instanceof Date) return v.toISOString().split("T")[0];
+    if (!v) return getLocalDateInputValue();
+    if (v instanceof Date) return getLocalDateInputValue(v);
     return v.split("T")[0];
   }
 
@@ -117,8 +117,9 @@ export function BudgetFormModal() {
     setWalletIds([]);
     setCreditCardDebtIds([]);
     setRollover(false);
-    setStartDate(new Date().toISOString().split("T")[0]);
-    setEndDate(getAutoEndDate(new Date().toISOString().split("T")[0], "monthly"));
+    const today = getLocalDateInputValue();
+    setStartDate(today);
+    setEndDate(getAutoEndDate(today, "monthly"));
     setEndDateManuallySet(false);
   }
 
