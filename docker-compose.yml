@@ -20,7 +20,7 @@ services:
     container_name: cashcore
     restart: always
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     # env_file inyecta TODAS las variables en RUNTIME (DATABASE_URL, VAPID_PRIVATE_KEY, etc.)
     env_file:
       - .env
