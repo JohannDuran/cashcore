@@ -1,0 +1,53 @@
+# Versión de la sintaxis de Docker Compose
+# (en versiones recientes de Docker, esto es opcional)
+
+services:
+  # ============================================
+  # SERVICIO: CashCore (tu app Next.js)
+  # ============================================
+  cashcore:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # Variables NEXT_PUBLIC_* que Next.js necesita en BUILD TIME.
+      # Compose las toma automáticamente del archivo .env del mismo directorio.
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+        NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: ${NEXT_SERVER_ACTIONS_ENCRYPTION_KEY}
+    container_name: cashcore
+    restart: always
+    ports:
+      - "3001:3000"
+    # env_file inyecta TODAS las variables en RUNTIME (DATABASE_URL, VAPID_PRIVATE_KEY, etc.)
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
+  # SERVICIO: Dozzle (visor de logs)
+  # ============================================
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    restart: always
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - dozzle_data:/data
+
+# ============================================
+# VOLÚMENES (almacenamiento persistente)
+# ============================================
+volumes:
+  dozzle_data:
